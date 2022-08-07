@@ -22,8 +22,11 @@ import complex_integration as ci
 import in_out
 import sys
 import warnings
-from scipy.special import erf
+from scipy.special import erf, log_ndtr
 from scipy import fft
+
+def ndtr_erf(z0,z1):
+    return 2*(np.exp(log_ndtr(z1*np.sqrt(2)))-np.exp(log_ndtr(z0*np.sqrt(2))))
 
 
 # don't print warnings unless python -W ... is used
@@ -243,28 +246,48 @@ elif (Lshape == "gauss"):
 #                                     )
 #                                  )
 
-#phi = 0
+#ndtr
     IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
                           *np.exp(-1j * E_fin_au * (t_au - t1)) \
-                          * np.exp(-1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L
+                          * np.exp(-A0L * p_au / 4 * np.exp(1j*phi)
                                                    * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                   * np.real(
-                                        erf((TL_au/2 -delta_t_au)/np.sqrt(2) / sigma_L
-                                            +
-                                             1j*sigma_L * omega_au / np.sqrt(2)
-                                           )
-                                            )
+                                   * ndtr_erf((TL_au/2 - 1j*sigma_L**2 * omega_au)
+                                           / np.sqrt(2) / sigma_L
+                                            ,((t1 - delta_t_au - 1j*sigma_L**2 * omega_au) 
+                                           / np.sqrt(2) / sigma_L)
+                                     )
                                   ) \
-                          * np.exp(1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L 
+                          * np.exp(-A0L * p_au / 4 * np.exp(-1j*phi)
                                                    * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                      *np.real(
-                                           erf((t1 - delta_t_au
-                                               +
-                                                1j*sigma_L**2 * omega_au
-                                               )
+                                   * ndtr_erf((TL_au/2 + 1j*sigma_L**2 * omega_au)
+                                           / np.sqrt(2) / sigma_L
+                                            ,((t1 - delta_t_au + 1j*sigma_L**2 * omega_au) 
                                            / np.sqrt(2) / sigma_L)
                                      )
                                   )
+
+##phi = 0
+#    IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
+#                          *np.exp(-1j * E_fin_au * (t_au - t1)) \
+#                          * np.exp(-1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L
+#                                                   * np.exp(-sigma_L**2 * omega_au**2 / 2)
+#                                   * np.real(
+#                                        erf((TL_au/2 -delta_t_au)/np.sqrt(2) / sigma_L
+#                                            +
+#                                             1j*sigma_L * omega_au / np.sqrt(2)
+#                                           )
+#                                            )
+#                                  ) \
+#                          * np.exp(1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L 
+#                                                   * np.exp(-sigma_L**2 * omega_au**2 / 2)
+#                                      *np.real(
+#                                           erf((t1 - delta_t_au
+#                                               +
+#                                                1j*sigma_L**2 * omega_au
+#                                               )
+#                                           / np.sqrt(2) / sigma_L)
+#                                     )
+#                                  )
 
 #-------------------------------------------------------------------------
 # technical defintions of functions
