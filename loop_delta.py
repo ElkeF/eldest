@@ -26,7 +26,16 @@ from scipy.special import erf, log_ndtr
 from scipy import fft
 
 def ndtr_erf(z0,z1):
-    return 2*(np.exp(log_ndtr(z1*np.sqrt(2)))-np.exp(log_ndtr(z0*np.sqrt(2))))
+    #return 2*(np.exp(log_ndtr(z1*np.sqrt(2)))-np.exp(log_ndtr(z0*np.sqrt(2))))
+    nz0=np.copy(z0)
+    nz1=np.copy(z1)
+    if (np.real(z0)>0) & (np.real(z1)>0):
+       nz0=-nz0
+       nz1=-nz1
+    prob=2*(np.exp(log_ndtr(nz1*np.sqrt(2)))-np.exp(log_ndtr(nz0*np.sqrt(2))))
+    if (np.real(z0)>0) & (np.real(z1)>0):
+       prob=-prob
+    return prob
 
 
 # don't print warnings unless python -W ... is used
