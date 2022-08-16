@@ -161,10 +161,6 @@ FX_t1 = lambda t1: (- A0X * np.cos(Omega_au * t1) * fp_t1(t1)
                     + A0X * Omega_au * np.sin(Omega_au * (t1)) * f_t1(t1)
                    )
 
-# IR pulse
-A_IR = lambda t3: A0L * np.sin(np.pi * (t3 - delta_t_au + TL_au/2) / TL_au)**2 \
-                      * np.cos(omega_au * t3 + phi)
-#integ_IR = lambda t3: (p_au + A_IR(t3))**2
 
 if (Lshape == "sinsq"):
     
@@ -500,7 +496,6 @@ while (delta_t_au <= delta_t_max):
         gamma = Er_au-E_kin_au-E_fin_au-1j*np.pi*VEr_au**2
 
 
-        #p_au = -A_IR(t_au) + np.sqrt(A_IR(t_au)**2 + 2 * E_kin_au) # only relevant when looking at times during the pulse
 
 # integral 1
         if (integ_outer == "quadrature"):
