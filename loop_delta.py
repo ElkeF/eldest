@@ -167,25 +167,6 @@ A_IR = lambda t3: A0L * np.sin(np.pi * (t3 - delta_t_au + TL_au/2) / TL_au)**2 \
 #integ_IR = lambda t3: (p_au + A_IR(t3))**2
 
 if (Lshape == "sinsq"):
-    IR_during = lambda t1:  np.exp(-1j * p_au**2/2 * (t_au - t1)) \
-                            * np.exp(-1j * E_fin_au * (t_au - t1)) \
-                            * np.exp(-1j * p_au * A0L / 4
-                            * (np.sin(2*np.pi/TL_au * (t_au - delta_t_au)
-                                      - omega_au * (t_au - delta_t_au) - phi)
-                                / (2*np.pi/TL_au - omega_au)
-                               - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
-                                      - omega_au * (t1 - delta_t_au) - phi)
-                                / (2*np.pi/TL_au - omega_au)
-                               + np.sin(2*np.pi/TL_au * (t_au - delta_t_au)
-                                      + omega_au * (t_au - delta_t_au) + phi)
-                                / (2*np.pi/TL_au + omega_au)
-                               - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
-                                      + omega_au * (t1 - delta_t_au) + phi)
-                                / (2*np.pi/TL_au + omega_au)
-                               + 2./omega_au * np.sin(omega_au * (t_au - delta_t_au) + phi)
-                               - 2./omega_au * np.sin(omega_au * (t1 - delta_t_au) + phi)
-                              )
-                           )
     
     IR_after = lambda t1:  np.exp(-1j * p_au**2/2 * (t_au - t1)) \
                                   *np.exp(-1j * E_fin_au * (t_au - t1)) \
@@ -206,25 +187,6 @@ if (Lshape == "sinsq"):
                           )
 
 elif (Lshape == "gauss"):
-    IR_during = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
-                           *np.exp(-1j * E_fin_au * (t_au - t1)) \
-                           * np.exp(-A0L * p_au / 4 * np.exp(1j*phi)
-                                                    * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                    * (erf((t_au - delta_t_au - 1j*sigma_L**2 * omega_au)
-                                            / np.sqrt(2) / sigma_L)
-                                       -erf((t1 - delta_t_au - 1j*sigma_L**2 * omega_au) 
-                                            / np.sqrt(2) / sigma_L)
-                                      )
-                                   ) \
-                           * np.exp(-A0L * p_au / 4 * np.exp(-1j*phi)
-                                                    * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                    * (erf((t_au - delta_t_au + 1j*sigma_L**2 * omega_au)
-                                            / np.sqrt(2) / sigma_L)
-                                       -erf((t1 - delta_t_au + 1j*sigma_L**2 * omega_au) 
-                                            / np.sqrt(2) / sigma_L)
-                                      )
-                                   )
-
 #    IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
 #                          *np.exp(-1j * E_fin_au * (t_au - t1)) \
 #                          * np.exp(-A0L * p_au / 4 * np.exp(1j*phi)
