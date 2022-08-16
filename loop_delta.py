@@ -46,6 +46,7 @@ outfile.write("The results were obtained with loop_delta.py \n")
  Er_a_eV, Er_b_eV, tau_a_s, tau_b_s, E_fin_eV, tau_s, E_fin_eV_2, tau_s_2,
  interact_eV,
  Omega_eV, n_X, I_X, X_sinsq, X_gauss, Xshape,
+ IR_streak, Asquare,
  omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, sigma_L,
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
@@ -264,6 +265,21 @@ elif (Lshape == "gauss"):
                                                )
                                            / np.sqrt(2) / sigma_L)
                                      )
+                                  ) \
+                          * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(np.pi)
+                                   *( erf(1/sigma_L*(TL_au - delta_t_au))
+                                     -erf(1/sigma_L*(t1 - delta_t_au))
+                                    )
+                                  )\
+                          * np.exp(-1j/8* A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
+                                   *np.real( erf( 1./sigma_L* (TL_au/2 - delta_t_au + 1j*omega_au * sigma_L**2)
+                                               )
+                                          )
+                                  )\
+                          * np.exp(1j/8*A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
+                                   *np.real( erf( 1./sigma_L* (t1 - delta_t_au + 1j*omega_au * sigma_L**2)
+                                               )
+                                          )
                                   )
 
 #-------------------------------------------------------------------------
@@ -310,6 +326,14 @@ elif (Lshape == "gauss"):
                               * np.exp(-1j* alpha
                                        * np.real(erf((TL_au/2-delta_t_au)/np.sqrt(2)/sigma_L
                                                               +1j*omega_au * sigma_L / np.sqrt(2))
+                                                )
+                                      )\
+                              * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
+                                       * erf((TL_au/2 - delta_t_au)/ sigma_L)
+                                      )\
+                              * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
+                                       * np.real(
+                                            erf(1./ sigma_L *(TL_au/2 - delta_t_au + 1j*omega_au*sigma_L**2))
                                                 )
                                       )
 
@@ -399,8 +423,8 @@ if (Lshape == "sinsq"):
 #    delta_t_au = - sciconv.second_to_atu(2.0E-14)
 #    delta_t_max = 0
 elif (Lshape == "gauss"):
-    delta_t_au = - 3*np.pi / omega_au
-    delta_t_max = 3*np.pi / omega_au
+    delta_t_au = - 1*np.pi / omega_au
+    delta_t_max = 1*np.pi / omega_au
 
 # construct list of energy points
 Ekins = []
@@ -430,12 +454,35 @@ for E_ind in range (0,N_Ekin):
                            * np.sin((omega_au) * tau_var + phi)) 
     elif (Lshape == "gauss"):
         alpha = p_au * A0L * sigma_L * np.sqrt(np.pi/8) * np.exp(-omega_au**2 * sigma_L**2 / 2)
+        alpha2= (A0L**2 / 8
+                 * sigma_L
+                 * np.sqrt(np.pi)
+                 * np.exp(-omega_au**2 * sigma_L**2)
+                )
+        alpha3= (A0L**2 / 8
+                 * sigma_L
+                 * np.sqrt(np.pi)
+                )
         # phi = 0
         f_grid = np.exp(1j* alpha
                         * np.real( erf(tau_var/np.sqrt(2)/sigma_L
                                                +1j*omega_au * sigma_L / np.sqrt(2))
                                  )
-                       )
+                       )\
+             *np.exp(1j*alpha2
+                    * np.real( erf(
+                                     tau_var/sigma_L
+                                    +
+                                     1j*omega_au * sigma_L
+                                  )
+                             )
+                   ) \
+             *np.exp(1j*alpha3
+                    * np.real( erf(
+                                     tau_var/sigma_L
+                                  )
+                             )
+                   )
         #f_grid = np.exp(1j* alpha
         #                * (np.exp(1j*phi) * erf(tau_var/np.sqrt(2)/sigma_L
         #                                       -1j*omega_au * sigma_L / np.sqrt(2))

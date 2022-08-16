@@ -41,6 +41,8 @@ def read_input(inputfile, outfile):
     Xshape        = "convoluted"
     #
     # dressing laser parameters
+    IR_streak     = False
+    Asquare       = False
     omega_eV      = 1.6           # IR pulse
     n_L           = 10
     I_L           = 1.0E12        # intensity of the IR pulse in W/cm^2
@@ -174,6 +176,14 @@ def read_input(inputfile, outfile):
                 print('Convoluted XUV pulse selected')
     
     # dressing laser parameters
+        elif (words[0] == 'IR_streak'):
+            IR_streak = True
+            print('IR_streak = ', True)
+            outfile.write('IR_streak = ' + '\n')
+        elif (words[0] == 'Asquare'):
+            Asquare = True
+            print('Asquare term included')
+            outfile.write('Asquare term included' + '\n')
         elif (words[0] == 'omega_eV'):
             omega_eV = float(words[2])
             print('omega_eV = ', omega_eV)
@@ -319,6 +329,7 @@ def read_input(inputfile, outfile):
             Er_a_eV, Er_b_eV, tau_a_s, tau_b_s, E_fin_eV, tau_s, E_fin_eV_2, tau_s_2,
             interact_eV,
             Omega_eV, n_X, I_X, X_sinsq, X_gauss, Xshape,
+            IR_streak, Asquare,
             omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, FWHM_L,
             tmax_s, timestep_s, E_step_eV,
             E_min_eV, E_max_eV,
