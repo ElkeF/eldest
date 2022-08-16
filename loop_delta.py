@@ -46,7 +46,7 @@ outfile.write("The results were obtained with loop_delta.py \n")
  Er_a_eV, Er_b_eV, tau_a_s, tau_b_s, E_fin_eV, tau_s, E_fin_eV_2, tau_s_2,
  interact_eV,
  Omega_eV, n_X, I_X, X_sinsq, X_gauss, Xshape,
- IR_streak, Asquare,
+ IR_streak, Ap_only,
  omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, sigma_L,
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
@@ -164,23 +164,79 @@ FX_t1 = lambda t1: (- A0X * np.cos(Omega_au * t1) * fp_t1(t1)
 
 if (Lshape == "sinsq"):
     
-    IR_after = lambda t1:  np.exp(-1j * p_au**2/2 * (t_au - t1)) \
-                                  *np.exp(-1j * E_fin_au * (t_au - t1)) \
-                           * np.exp(-1j * p_au * A0L / 4
-                           * (np.sin(np.pi - omega_au * TL_au/2 - phi)
-                               / (2*np.pi/TL_au - omega_au)
-                              - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
-                                     - omega_au * (t1 - delta_t_au) - phi)
-                               / (2*np.pi/TL_au - omega_au)
-                              + np.sin(np.pi + omega_au * TL_au/2 + phi)
-                               / (2*np.pi/TL_au + omega_au)
-                              - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
-                                     + omega_au * (t1 - delta_t_au) + phi)
-                               / (2*np.pi/TL_au + omega_au)
-                              + 2./omega_au * np.sin(omega_au * TL_au/2 + phi)
-                              - 2./omega_au * np.sin(omega_au * (t1 - delta_t_au) + phi)
+    if Ap_only:
+       IR_after = lambda t1:  np.exp(-1j * p_au**2/2 * (t_au - t1)) \
+                                     *np.exp(-1j * E_fin_au * (t_au - t1)) \
+                              * np.exp(-1j * p_au * A0L / 4
+                              * (np.sin(np.pi - omega_au * TL_au/2 - phi)
+                                  / (2*np.pi/TL_au - omega_au)
+                                 - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
+                                        - omega_au * (t1 - delta_t_au) - phi)
+                                  / (2*np.pi/TL_au - omega_au)
+                                 + np.sin(np.pi + omega_au * TL_au/2 + phi)
+                                  / (2*np.pi/TL_au + omega_au)
+                                 - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
+                                        + omega_au * (t1 - delta_t_au) + phi)
+                                  / (2*np.pi/TL_au + omega_au)
+                                 + 2./omega_au * np.sin(omega_au * TL_au/2 + phi)
+                                 - 2./omega_au * np.sin(omega_au * (t1 - delta_t_au) + phi)
+                                )
                              )
-                          )
+    else:
+        IR_after = lambda t1:  np.exp(-1j * p_au**2/2 * (t_au - t1)) \
+                                      *np.exp(-1j * E_fin_au * (t_au - t1)) \
+                               * np.exp(-1j * p_au * A0L / 4 # A term
+                               * (np.sin(np.pi - omega_au * TL_au/2 - phi)
+                                   / (2*np.pi/TL_au - omega_au)
+                                  - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
+                                         - omega_au * (t1 - delta_t_au) - phi)
+                                   / (2*np.pi/TL_au - omega_au)
+                                  + np.sin(np.pi + omega_au * TL_au/2 + phi)
+                                   / (2*np.pi/TL_au + omega_au)
+                                  - np.sin(2*np.pi/TL_au * (t1 - delta_t_au)
+                                         + omega_au * (t1 - delta_t_au) + phi)
+                                   / (2*np.pi/TL_au + omega_au)
+                                  + 2./omega_au * np.sin(omega_au * TL_au/2 + phi)
+                                  - 2./omega_au * np.sin(omega_au * (t1 - delta_t_au) + phi)
+                                 )
+                                )\
+                               *np.exp(-1j*A0L**2 / 64
+                                       * 24 * (2*np.pi/TL_au)**4 * np.sin(omega_au * TL_au + 2*phi)
+                                       / omega_au
+                                       / (4*(2*np.pi/TL_au)**4 - 5*(2*np.pi/TL_au)**2 * (2*omega_au)
+                                             + (2*omega_au)**4)
+                                      )\
+                               * np.exp(+1j*A0L**2 / 64 *2 / (4*np.pi/TL_au + 2*omega_au)
+                                        * np.sin((4*np.pi/TL_au + 2*omega_au)
+                                                  * (t1 - delta_t_au) + 2*phi)
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 *TL_au / np.pi
+                                        * np.sin(4*np.pi/TL_au
+                                                  * (t1 - delta_t_au))
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 *2 / (4*np.pi/TL_au - 2*omega_au)
+                                        * np.sin((4*np.pi/TL_au -
+                                                  2*omega_au) * (t1 - delta_t_au) - 2*phi)
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 *8 / (2*np.pi/TL_au + 2*omega_au)
+                                        * np.sin((2*np.pi/TL_au + 2*omega_au)
+                                                  * (t1 - delta_t_au) + 2*phi)
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 * 8 *TL_au / np.pi
+                                        * np.sin(2*np.pi/TL_au
+                                                  * (t1 - delta_t_au))
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 *8 / (2*np.pi/TL_au - 2*omega_au)
+                                        * np.sin((2*np.pi/TL_au - 2*omega_au)
+                                                  * (t1 - delta_t_au) - 2*phi)
+                                       )\
+                               * np.exp(+1j*A0L**2 / 64 *6 / omega_au
+                                        * np.sin(2*omega_au
+                                                  * (t1 - delta_t_au) + 2*phi)
+                                       )\
+                               * np.exp(-1j*A0L**2 / 64 *12
+                                        * (delta_t_au + TL_au -t1)
+                                       )
 
 elif (Lshape == "gauss"):
 #    IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
@@ -203,42 +259,66 @@ elif (Lshape == "gauss"):
 #                                  )
 
 #phi = 0
-    IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
-                          *np.exp(-1j * E_fin_au * (t_au - t1)) \
-                          * np.exp(-1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L
-                                                   * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                   * np.real(
-                                        erf((TL_au/2 -delta_t_au)/np.sqrt(2) / sigma_L
-                                            +
-                                             1j*sigma_L * omega_au / np.sqrt(2)
-                                           )
-                                            )
-                                  ) \
-                          * np.exp(1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L 
-                                                   * np.exp(-sigma_L**2 * omega_au**2 / 2)
-                                      *np.real(
-                                           erf((t1 - delta_t_au
+    if Ap_only:
+       IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
+                             *np.exp(-1j * E_fin_au * (t_au - t1)) \
+                             * np.exp(-1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L
+                                                      * np.exp(-sigma_L**2 * omega_au**2 / 2)
+                                      * np.real(
+                                           erf((TL_au/2 -delta_t_au)/np.sqrt(2) / sigma_L
                                                +
-                                                1j*sigma_L**2 * omega_au
+                                                1j*sigma_L * omega_au / np.sqrt(2)
+                                              )
                                                )
-                                           / np.sqrt(2) / sigma_L)
+                                     ) \
+                             * np.exp(1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L 
+                                                      * np.exp(-sigma_L**2 * omega_au**2 / 2)
+                                         *np.real(
+                                              erf((t1 - delta_t_au
+                                                  +
+                                                   1j*sigma_L**2 * omega_au
+                                                  )
+                                              / np.sqrt(2) / sigma_L)
+                                        )
+
                                      )
-                                  ) \
-                          * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(np.pi)
-                                   *( erf(1/sigma_L*(TL_au - delta_t_au))
-                                     -erf(1/sigma_L*(t1 - delta_t_au))
-                                    )
-                                  )\
-                          * np.exp(-1j/8* A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
-                                   *np.real( erf( 1./sigma_L* (TL_au/2 - delta_t_au + 1j*omega_au * sigma_L**2)
+    else:
+       IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
+                             *np.exp(-1j * E_fin_au * (t_au - t1)) \
+                             * np.exp(-1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L
+                                                      * np.exp(-sigma_L**2 * omega_au**2 / 2)
+                                      * np.real(
+                                           erf((TL_au/2 -delta_t_au)/np.sqrt(2) / sigma_L
+                                               +
+                                                1j*sigma_L * omega_au / np.sqrt(2)
+                                              )
                                                )
-                                          )
-                                  )\
-                          * np.exp(1j/8*A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
-                                   *np.real( erf( 1./sigma_L* (t1 - delta_t_au + 1j*omega_au * sigma_L**2)
-                                               )
-                                          )
-                                  )
+                                     ) \
+                             * np.exp(1j*A0L * p_au * np.sqrt(np.pi/8) *sigma_L 
+                                                      * np.exp(-sigma_L**2 * omega_au**2 / 2)
+                                         *np.real(
+                                              erf((t1 - delta_t_au
+                                                  +
+                                                   1j*sigma_L**2 * omega_au
+                                                  )
+                                              / np.sqrt(2) / sigma_L)
+                                        )
+                                     ) \
+                             * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(np.pi)
+                                      *( erf(1/sigma_L*(TL_au - delta_t_au))
+                                        -erf(1/sigma_L*(t1 - delta_t_au))
+                                       )
+                                     )\
+                             * np.exp(-1j/8* A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
+                                      *np.real( erf( 1./sigma_L* (TL_au/2 - delta_t_au + 1j*omega_au * sigma_L**2)
+                                                  )
+                                             )
+                                     )\
+                             * np.exp(1j/8*A0L**2 * sigma_L * np.sqrt(np.pi) * np.exp(-omega_au**2 * sigma_L**2)
+                                      *np.real( erf( 1./sigma_L* (t1 - delta_t_au + 1j*omega_au * sigma_L**2)
+                                                  )
+                                             )
+                                     )
 
 #-------------------------------------------------------------------------
 # technical defintions of functions
