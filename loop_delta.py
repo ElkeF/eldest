@@ -350,30 +350,75 @@ fun_IR_dir = lambda t1: FX_t1(t1) * IR_during(t1)
 #-------------------------------------------------------------------------
 # resonant state functions
 if (Lshape == "sinsq"):
+    if Ap_only:
+       inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
+                               *np.exp(-1j*A0L*p_au/4*8*(np.pi)**2/(omega_au*(4*(np.pi)**2 - omega_au**2*TL_au**2))    \
+                               *np.sin(omega_au*TL_au/2+phi))
 
-    inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
-                            *np.exp(-1j*A0L*p_au/4*8*(np.pi)**2/(omega_au*(4*(np.pi)**2 - omega_au**2*TL_au**2))    \
-                            *np.sin(omega_au*TL_au/2+phi))
+    else:
+       inner_prefac = lambda x,y:  np.exp(-1j * y * (p_au**2/2 + E_fin_au)) \
+                               * np.exp(-1j * p_au * A0L / (4*(2*np.pi/TL_au - omega_au))
+                                        *np.sin(2*np.pi/TL_au * (x - delta_t_au)
+                                                - omega_au * (x - delta_t_au) - phi) ) \
+                               * np.exp(-1j * p_au * A0L / (4*(2*np.pi/TL_au + omega_au))
+                                        *np.sin(2*np.pi/TL_au * (x - delta_t_au)
+                                                + omega_au * (x + delta_t_au) + phi) ) \
+                               * np.exp(-1j * p_au * A0L / (2*omega_au)
+                                        *np.sin(omega_au * (x - delta_t_au) + phi) ) \
+                               * np.exp(-1j*A0L**2 / 128.0 / (2*np.pi/TL_au + omega_au)#first term A**2
+                                        * np.sin(4*np.pi * (x-delta_t_au)/ TL_au
+                                                 + 2 * (omega_au*x + phi) )
+                                       )\
+                               * np.exp(-1j*A0L**2 / 32 / (np.pi/TL_au + omega_au)
+                                        * np.sin(2*np.pi * (x-delta_t_au)/ TL_au
+                                                 + 2 * (omega_au*x + phi) )
+                                       )\
+                               * np.exp(-3j*A0L**2 / 32 / omega_au
+                                        * np.sin(2 * (omega_au*x + phi) )
+                                       )\
+                               * np.exp(-1j*A0L**2 / 32 / (np.pi/TL_au - omega_au)
+                                        * np.sin(2*np.pi * (x-delta_t_au)/ TL_au
+                                                 - 2 * (omega_au*x + phi) )
+                                       )\
+                               * np.exp(-1j*A0L**2 / 128 / (2*np.pi/TL_au - omega_au)
+                                        * np.sin(4*np.pi * (x-delta_t_au)/ TL_au
+                                                 - 2 * (omega_au*x + phi) )
+                                       )\
+                               * np.exp(-3j*A0L**2 / 16 * x)\
+                               * np.exp(-1j*A0L**2 *TL_au / 64
+                                        * np.sin(4 * np.pi * (x-delta_t_au) / TL_au )
+                                       )\
+                               * np.exp(-1j*A0L**2 * TL_au / 8
+                                        * np.sin(2 * np.pi * (x-delta_t_au) / TL_au )
+                                       )
 
 
     
 
 elif (Lshape == "gauss"):
 # for phi = 0
-    inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
-                              * np.exp(-1j* alpha
-                                       * np.real(erf((TL_au/2-delta_t_au)/np.sqrt(2)/sigma_L
-                                                              +1j*omega_au * sigma_L / np.sqrt(2))
-                                                )
-                                      )\
-                              * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
-                                       * erf((TL_au/2 - delta_t_au)/ sigma_L)
-                                      )\
-                              * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
-                                       * np.real(
-                                            erf(1./ sigma_L *(TL_au/2 - delta_t_au + 1j*omega_au*sigma_L**2))
-                                                )
-                                      )
+    if Ap_only:
+       inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
+                                 * np.exp(-1j* alpha
+                                          * np.real(erf((TL_au/2-delta_t_au)/np.sqrt(2)/sigma_L
+                                                                 +1j*omega_au * sigma_L / np.sqrt(2))
+                                                   )
+                                         )
+    else:
+       inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
+                                 * np.exp(-1j* alpha
+                                          * np.real(erf((TL_au/2-delta_t_au)/np.sqrt(2)/sigma_L
+                                                                 +1j*omega_au * sigma_L / np.sqrt(2))
+                                                   )
+                                         )\
+                                 * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
+                                          * erf((TL_au/2 - delta_t_au)/ sigma_L)
+                                         )\
+                                 * np.exp(-1j/8 * A0L**2 * sigma_L * np.sqrt(2)
+                                          * np.real(
+                                               erf(1./ sigma_L *(TL_au/2 - delta_t_au + 1j*omega_au*sigma_L**2))
+                                                   )
+                                         )
 
 #    inner_prefac = lambda t_au: np.exp(-1j*t_au*(E_kin_au+E_fin_au))    \
 #                              * np.exp(-1j* alpha
@@ -502,25 +547,32 @@ for E_ind in range (0,N_Ekin):
                  * np.sqrt(np.pi)
                 )
         # phi = 0
-        f_grid = np.exp(1j* alpha
-                        * np.real( erf(tau_var/np.sqrt(2)/sigma_L
-                                               +1j*omega_au * sigma_L / np.sqrt(2))
-                                 )
-                       )\
-             *np.exp(1j*alpha2
-                    * np.real( erf(
-                                     tau_var/sigma_L
-                                    +
-                                     1j*omega_au * sigma_L
-                                  )
-                             )
-                   ) \
-             *np.exp(1j*alpha3
-                    * np.real( erf(
-                                     tau_var/sigma_L
-                                  )
-                             )
-                   )
+        if Ap_only:
+           f_grid = np.exp(1j* alpha
+                           * np.real( erf(tau_var/np.sqrt(2)/sigma_L
+                                                  +1j*omega_au * sigma_L / np.sqrt(2))
+                                    )
+                          )
+        else:
+           f_grid = np.exp(1j* alpha
+                           * np.real( erf(tau_var/np.sqrt(2)/sigma_L
+                                                  +1j*omega_au * sigma_L / np.sqrt(2))
+                                    )
+                          )\
+                *np.exp(1j*alpha2
+                       * np.real( erf(
+                                        tau_var/sigma_L
+                                       +
+                                        1j*omega_au * sigma_L
+                                     )
+                                )
+                      ) \
+                *np.exp(1j*alpha3
+                       * np.real( erf(
+                                        tau_var/sigma_L
+                                     )
+                                )
+                      )
         #f_grid = np.exp(1j* alpha
         #                * (np.exp(1j*phi) * erf(tau_var/np.sqrt(2)/sigma_L
         #                                       -1j*omega_au * sigma_L / np.sqrt(2))
