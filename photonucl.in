@@ -1,0 +1,65 @@
+# transitions dipole moments
+rdg_au        = 0.70             # transition dipole moment into the resonant state
+cdg_au        = 0.5              # transition dipole moment into any continuum state
+q             = 1
+# parameters of the investigated system
+# the ground state (vibrational gs of electronic gs) energy is being defined as EG = 0
+Er_a_eV       =  49.7477         # resonance energy (at potential minimum) in eV
+Er_b_eV       =   0.0
+E_fin_eV      =  39.9004         # final state energy (at potential minimum) in eV
+tau_s         =  20E-15          # lifetime in s
+E_fin_eV_2    =   0.0 
+tau_a_s       =   0.0
+tau_b_s       =   0.0
+tau_s_2       =   0.0
+interact_eV   =   0.0
+#
+# laser parameters
+Omega_eV      = 50.0000          # mean photon energy of the XUV pulse in eV
+n_X           = 10               # number of cycles within the XUV pulse
+I_X           = 5.0E8            # intensity of the XUV pulse in W/cm^2
+X_shape       = gauss            # options: gauss, sinsq
+Xshape        = convoluted       # options: convoluted, infinite
+#
+# dressing laser parameters
+omega_eV      = 1E-10            # IR pulse
+n_L           = 0
+I_L           = 0.0
+delta_t_s     = 0.0
+shift_step_s  = 0.0
+phi           = 0
+FWHM_L        = 0
+#
+# parameters of the simulation
+tmax_s        = 150.0E-15        # simulate until time tmax in s
+timestep_s    =   0.5E-15        # evaluate expression every timestep_s seconds 
+#
+E_min_eV      =  9.8
+E_max_eV      = 10.4
+E_step_eV     =  0.0050          # energy difference between different evaluated electron kinetic energies
+#
+integ         = analytic         # options: analytic, (quadrature, romberg - both currently unavailable)
+integ_outer   = quadrature       # options: quadrature, romberg
+#
+# parameters for the nuclear dynamics
+mass1         = 20.1797          # in g/mol
+mass2         = 20.1797          # in g/mol
+grad_delta    = 0.001
+R_eq_AA       = 3.08
+# vibrational states parameters  # provide everything in au (de in Hartree, a in inverse Bohr, Req in Bohr)
+# ground state parameters
+gs_de         = 0.0001102
+gs_a          = 1.5
+gs_Req        = 6.0
+gs_const      = 0.0
+# resonant state parameters
+res_de        = 0.0183747
+res_a         = 15.3994
+res_Req       = 6.0
+res_const     = 0.0
+# final state parameters
+fin_a         = 0.0036749        # for morse: fin_de
+fin_b         = 21.7512          # for morse: fin_a
+fin_c         = 6.0              # for morse: fin_Req
+fin_d         = 0.0              # for morse: fin_const
+fin_pot_type  = morse            # options: morse

@@ -10,7 +10,7 @@
 
 import sciconv
 import numpy as np
-from sys import exit
+import sys
 
 
 #-------------------------------------------------------------------------
@@ -632,7 +632,8 @@ def prep_output(I, Omega_au, t_au):
     #print I
     Omega_eV = sciconv.hartree_to_ev(Omega_au)
     t_s = sciconv.atu_to_second(t_au)
-    string = str(Omega_eV) + '   ' + format(t_s, '.18f') + '   ' + format(I, '.15e')
+    string = format(Omega_eV, '>8.5f') + '   ' + format(t_s, ' .18f') + '   ' + format(I, '.15e')
+    #string = str(Omega_eV) + '   ' + format(t_s, '.18f') + '   ' + format(I, '.15e')
     return string
 
 def prep_output_comp(I, I2, Omega_au, t_au):
