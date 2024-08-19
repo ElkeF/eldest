@@ -93,8 +93,6 @@ tau_au         = tau_au_1                           # (same as for Er)
 Gamma_au       = 1. / tau_au
 Gamma_eV       = sciconv.hartree_to_ev(Gamma_au)
 outfile.write('Gamma_eV = ' + str(Gamma_eV) + '\n')
-print('Dependence of Gamma on R = ', Gamma_type)
-outfile.write('Dependence of Gamma on R = ' + str(Gamma_type) + '\n')
 
 # second final state
 #E_fin_au_2       = sciconv.ev_to_hartree(E_fin_eV_2)
