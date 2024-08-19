@@ -201,13 +201,13 @@ for n in range (0,n_gs_max+1):
     outfile.write('{:4d}  {:14.10E}  {:14.10E}\n'.format(n,ev,sciconv.hartree_to_ev(ev)))
     print('{:4d}  {:14.10E}  {:14.10E}'.format(n,ev,sciconv.hartree_to_ev(ev)))
 
-#resonant state
+#resonance state
 print()
 print("Resonant state")
 print('-----------------------------------------------------------------')
-print("Energies of vibrational states of the resonant state")
+print("Energies of vibrational states of the resonance state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write("Energies of vibrational states of the resonant state" + '\n')
+outfile.write("Energies of vibrational states of the resonance state" + '\n')
 lambda_param_res = np.sqrt(2*red_mass*res_de) / res_a
 n_res_max = int(lambda_param_res - 0.5)
 print("n_res_max = ", n_res_max)
@@ -306,7 +306,7 @@ elif fin_pot_type == 'hyperbel':
 tmp = np.zeros(2)
 while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
     R_min -= 0.01                                   # if so: lower the lower integration bound by 0.01 bohr
-    tmp = integrate.quad(func, R_min, R_max,limit=500)
+    tmp = integrate.quad(func, R_min, R_max,epsabs=1e-10,limit=500)
     print(R_min, tmp)
 
 print()
@@ -318,12 +318,12 @@ outfile.write('\n' + 'Lower bound of integration over R for the Franck-Condon fa
 outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
 
 
-# ground state - resonant state <lambda|kappa>
+# ground state - resonance state <lambda|kappa>
 print('-----------------------------------------------------------------')
-print("Franck-Condon overlaps between ground and resonant state")
+print("Franck-Condon overlaps between ground and resonance state")
 print('n_gs  ' + 'n_res  ' + '<res|gs>')
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write("Franck-Condon overlaps between ground and resonant state" + '\n')
+outfile.write("Franck-Condon overlaps between ground and resonance state" + '\n')
 outfile.write('n_gs  ' + 'n_res  ' + '<res|gs>' + '\n')
 for i in range (0,n_gs_max+1):
     tmp = []
@@ -336,7 +336,7 @@ for i in range (0,n_gs_max+1):
         print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
     gs_res.append(tmp)
     
-# ground state - final state <mu|kappa>   and   resonant state - final state <mu|lambda>
+# ground state - final state <mu|kappa>   and   resonance state - final state <mu|lambda>
 if (fin_pot_type == 'morse'):
     if Gamma_type == "const":       # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
         FCfunc_res = wf.FC
@@ -460,9 +460,9 @@ for k in range(0,n_gs_max+1):
 
 print()
 print('-----------------------------------------------------------------')
-print("Franck-Condon overlaps between final and resonant state")
+print("Franck-Condon overlaps between final and resonance state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write("Franck-Condon overlaps between final and resonant state" + '\n')
+outfile.write("Franck-Condon overlaps between final and resonance state" + '\n')
 print('n_res  ' +'n_fin  ' + '<fin|res>')
 outfile.write('n_res  ' +'n_fin  ' + '<fin|res>' + '\n')
 
@@ -481,8 +481,8 @@ for l in range(0,n_res_max+1):
                 print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
                 print('   ...')
 if (fin_pot_type in ('hyperbel','hypfree')):
-    print("All overlaps between ground or resonant state and final state\n outside the indicated quantum numbers are considered zero")
-    outfile.write("All overlaps between ground or resonant state and final state\n outside the indicated quantum numbers are considered zero\n")
+    print("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero")
+    outfile.write("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero\n")
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
 indir_FCsums = []
