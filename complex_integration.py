@@ -8,7 +8,7 @@
 # written by: Elke Fasshauer May 2018                                    #
 ##########################################################################
 
-import scipy
+import numpy
 import scipy.integrate as integrate
 
 #-------------------------------------------------------------------------
@@ -17,9 +17,9 @@ import scipy.integrate as integrate
 
 def complex_quadrature(func, a, b, **kwargs):
     def real_func(x, **kwargs):
-        return scipy.real(func(x, **kwargs))
-    def imag_func(x):
-        return scipy.imag(func(x))
+        return numpy.real(func(x, **kwargs))
+    def imag_func(x, **kwargs):
+        return numpy.imag(func(x, **kwargs))
     real_integral = integrate.quad(real_func, a, b, **kwargs)
     imag_integral = integrate.quad(imag_func, a, b, **kwargs)
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:],
@@ -29,18 +29,18 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def complex_romberg(func, a, b, **kwargs):
     def real_func(x):
-        return scipy.real(func(x))
+        return numpy.real(func(x))
     def imag_func(x):
-        return scipy.imag(func(x))
+        return numpy.imag(func(x))
     real_integral = integrate.romberg(real_func, a, b, **kwargs)
     imag_integral = integrate.romberg(imag_func, a, b, **kwargs)
     return real_integral + 1j*imag_integral
 
 def complex_double_quadrature(outer, inner, a, b, gfun, hfun, **kwargs):
-    first_real = lambda y,x: scipy.real(outer(x)) * scipy.real(inner(y))
-    sec_real   = lambda y,x: - scipy.imag(outer(x)) * scipy.imag(inner(y))
-    first_imag = lambda y,x: scipy.imag(outer(x)) * scipy.real(inner(y))
-    sec_imag   = lambda y,x: scipy.real(outer(x)) * scipy.imag(inner(y))
+    first_real = lambda y,x: numpy.real(outer(x)) * numpy.real(inner(y))
+    sec_real   = lambda y,x: - numpy.imag(outer(x)) * numpy.imag(inner(y))
+    first_imag = lambda y,x: numpy.imag(outer(x)) * numpy.real(inner(y))
+    sec_imag   = lambda y,x: numpy.real(outer(x)) * numpy.imag(inner(y))
 
     def temp_ranges(*args):
         return [gfun(args[0]) if callable(gfun) else gfun,

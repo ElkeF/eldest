@@ -29,7 +29,6 @@ from datetime import datetime
 dt_start = datetime.now()
 print(str(dt_start))
 
-
 # don't print warnings unless python -W ... is used
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
@@ -94,8 +93,8 @@ tau_au         = tau_au_1                           # (same as for Er)
 Gamma_au       = 1. / tau_au
 Gamma_eV       = sciconv.hartree_to_ev(Gamma_au)
 outfile.write('Gamma_eV = ' + str(Gamma_eV) + '\n')
-# print('Dependence of Gamma on R = ', Gamma_type)
-# outfile.write('Dependence of Gamma on R = ' + str(Gamma_type) + '\n')
+print('Dependence of Gamma on R = ', Gamma_type)
+outfile.write('Dependence of Gamma on R = ' + str(Gamma_type) + '\n')
 
 # second final state
 #E_fin_au_2       = sciconv.ev_to_hartree(E_fin_eV_2)
@@ -117,7 +116,7 @@ elif(X_gauss):
     print('FWHM [s] = ', sciconv.atu_to_second(FWHM))
     print('sigma_E [eV] = ', sciconv.hartree_to_ev(sigma_E))
     print('XUV reaches up to {:5.5f} au = {:5.5f} eV'.format(
-        EX_max_au, sciconv.hartree_to_ev(EX_max_au)))    
+        EX_max_au, sciconv.hartree_to_ev(EX_max_au)))
     outfile.write('sigma [s] = ' + str(sciconv.atu_to_second(sigma)) + '\n')
     outfile.write('FWHM [s] = ' + str(sciconv.atu_to_second(FWHM)) + '\n')
     outfile.write('sigma_E [eV] = ' + str(sciconv.hartree_to_ev(sigma_E)) + '\n')
@@ -167,8 +166,6 @@ outfile.write('VEr_au = ' + str(VEr_au) + '\n')
 #test q=1
 cdg_au_V = rdg_au / ( q * np.pi * VEr_au)
 
-#if Gamma_type == 'const':
-
 if Gamma_type =='R6':
     VEr_au = VEr_au*res_Req**3                            # adjusts VEr_au by the R dependent factor
     print('VEr_au_adjusted = ', VEr_au)
@@ -193,7 +190,7 @@ print("Energies of vibrational states of the ground state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
 outfile.write("Energies of vibrational states of the ground state" + '\n')
 lambda_param_gs = np.sqrt(2*red_mass*gs_de) / gs_a
-n_gs_max = int(lambda_param_gs - 0.5)
+n_gs_max = int(lambda_param_gs - 0.5)   # ? ONLY ONE GS MAY BE POPULATED OR ELSE EQS ARE WRONG
 print("n_gs_max = ", n_gs_max)
 print('n_gs  ' + 'E [au]            ' + 'E [eV]')
 outfile.write('n_gs  ' + 'E [au]            ' + 'E [eV]' + '\n')
@@ -227,10 +224,10 @@ for n in range (0,n_res_max+1):
 print()
 print("Final state")
 print('-----------------------------------------------------------------')
-print("Energies of vibrational states of the final state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write("Energies of vibrational states of the final state" + '\n')
 if (fin_pot_type == 'morse'):
+    print("Energies of vibrational states of the final state")
+    outfile.write("Energies of vibrational states of the final state" + '\n')
     fin_de    = fin_a
     fin_a     = fin_b
     fin_Req   = fin_c
@@ -246,8 +243,31 @@ if (fin_pot_type == 'morse'):
         E_mus.append(ev)
         outfile.write('{:5d}  {:14.10E}  {:14.10E}\n'.format(n,ev,sciconv.hartree_to_ev(ev)))
         print('{:5d}  {:14.10E}  {:14.10E}'.format(n,ev,sciconv.hartree_to_ev(ev)))
-
-
+elif (fin_pot_type in ('hyperbel','hypfree')):
+    print('Final state is repulsive')
+    outfile.write('Final state is repulsive' + '\n')
+    fin_hyp_a = fin_a
+    fin_hyp_b = fin_b
+    E_fin_au = fin_hyp_b        # Since for an all-repulsive state there is no minimum (E_fin), E_fin is set to the final potential at infinite distance, i.e. fin_hyp_b
+    E_fin_au_1 = fin_hyp_b
+    R_hyp_step = fin_c
+    threshold = fin_d   # If, coming from high mu, for a certain mu all |<mu|kappa>| and |<mu|lambda>| are < threshold, don't calc FCF and integrals for all mu < that mu
+    E_mus = []
+    R_start_EX_max = fin_hyp_a / (EX_max_au - fin_hyp_b)        # R_start of hyperbola corresponding to EX_max_au, used as minimum starting point for discretizing final vibr states
+    outfile.write('Continuous vibrational states of the final state are discretized:\n')
+    outfile.write('Energy of highest possibly considered vibrational state\n of the final state is {0:.5f} eV\nStep widths down from there decrease as (eV) {1:.5f}, {2:.5f} ...\n'.format(
+        sciconv.hartree_to_ev(EX_max_au - fin_hyp_b),
+        sciconv.hartree_to_ev(fin_hyp_a / R_start_EX_max  -  fin_hyp_a / (R_start_EX_max + R_hyp_step)),
+        sciconv.hartree_to_ev(fin_hyp_a / (R_start_EX_max + R_hyp_step)  - fin_hyp_a / (R_start_EX_max + 2 * R_hyp_step)) ))
+    outfile.write('Each E_mu is calculated as {0} au / R_start,\n where R_start begins at {1:.5f} au = {2:.5f} A\n and increases in constant steps of width {3:.5f} au = {4:.5f} A\n'.format(
+        fin_hyp_a, R_start_EX_max, sciconv.bohr_to_angstrom(R_start_EX_max), R_hyp_step, sciconv.bohr_to_angstrom(R_hyp_step) ))
+    print('Continuous vibrational states of the final state are discretized:')
+    print('Energy of highest possibly considered vibrational state\n of the final state is {0:.5f} eV\nStep widths down from there decrease as (eV) {1:.5f}, {2:.5f} ...'.format(
+        sciconv.hartree_to_ev(EX_max_au - fin_hyp_b),
+        sciconv.hartree_to_ev(fin_hyp_a / R_start_EX_max  -  fin_hyp_a / (R_start_EX_max + R_hyp_step)),
+        sciconv.hartree_to_ev(fin_hyp_a / (R_start_EX_max + R_hyp_step)  - fin_hyp_a / (R_start_EX_max + 2 * R_hyp_step)) ))
+    print('Each E_mu is calculated as {0} au / R_start,\n where R_start begins at {1:.5f} au = {2:.5f} A\n and increases in constant steps of width {3:.5f} au = {4:.5f} A'.format(
+        fin_hyp_a, R_start_EX_max, sciconv.bohr_to_angstrom(R_start_EX_max), R_hyp_step, sciconv.bohr_to_angstrom(R_hyp_step) ))
 
 #-------------------------------------------------------------------------
 # Franck-Condon factors
@@ -258,30 +278,46 @@ res_fin = []
 R_min = sciconv.angstrom_to_bohr(1.5)+0.01
 R_max = sciconv.angstrom_to_bohr(30.0)
 
+for k in range(0,n_gs_max+1):   # prepare the above (empty) sub-lists
+    gs_fin.append(list())
+for l in range(0,n_res_max+1):
+    res_fin.append(list())
+
 
 # Numerical integration failsafe check: calculate test FC overlap integral
+if Gamma_type == 'const':
+    Gamma_factor = lambda R: 1
+elif Gamma_type == 'R6':
+    Gamma_factor = lambda R: R**(-3)
 
-tmp=np.array((0,0))
+if fin_pot_type == 'morse':
+    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+                      * wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de)
+                      * Gamma_factor(R))
+elif fin_pot_type == 'hypfree':
+    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+                      * wf.psi_freehyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
+                      * Gamma_factor(R))
+elif fin_pot_type == 'hyperbel':
+    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+                      * wf.psi_hyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
+                      * Gamma_factor(R))
 
+tmp = np.zeros(2)
+while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
+    R_min -= 0.01                                   # if so: lower the lower integration bound by 0.01 bohr
+    tmp = integrate.quad(func, R_min, R_max,limit=500)
+    print(R_min, tmp)
 
-while tmp[0] <= (1000*tmp[1]):                                                                   # checks if the test integral is at least three orders of magnitude larger than the estimated error
-
-    R_min -= 0.01                                                                                # if so: lower the lower integration bound by 0.01 bohr
-    if Gamma_type == 'const':
-        func = lambda R: (np.conj(wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de))
-                                    * wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
-    elif Gamma_type == 'R6':
-        func = lambda R: (np.conj(wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de))
-                                    * wf.psi_n(R,0,res_a,res_Req,red_mass,res_de) * (1/R**3) )
-    tmp = integrate.quad(func, R_min, R_max, limit=500)
-
-print('-----------------------------------------------------------------')
 print()
+print('-----------------------------------------------------------------')
 print('Lower bound of integration over R for the Franck-Condon factors')
-print("R_min =",R_min)
-outfile.write('-----------------------------------------------------------------' + '\n')
-outfile.write('Lower bound of integration over R for the Franck-Condon factors' + '\n')
-outfile.write('R_min = {:14.10E}\n'.format(R_min))
+print('R_min = {:14.10E} au = {:5.5f} A'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
+outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
+outfile.write('\n' + 'Lower bound of integration over R for the Franck-Condon factors' + '\n')
+outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
+
+
 # ground state - resonant state <lambda|kappa>
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between ground and resonant state")
@@ -293,32 +329,135 @@ for i in range (0,n_gs_max+1):
     tmp = []
     for j in range (0,n_res_max+1):
         FC = wf.FC(j,res_a,res_Req,res_de,red_mass,
-                   i,gs_a,gs_Req,gs_de,R_min,R_max)
+                   i,gs_a,gs_Req,gs_de,R_min,R_max,
+                   epsabs=1e-10)
         tmp.append(FC)
         outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
         print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
     gs_res.append(tmp)
- 
-# ground state - final state <mu|kappa>
+    
+# ground state - final state <mu|kappa>   and   resonant state - final state <mu|lambda>
+if (fin_pot_type == 'morse'):
+    if Gamma_type == "const":       # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
+        FCfunc_res = wf.FC
+    elif Gamma_type == "R6":
+        FCfunc_res = wf.FCmor_mor_R6
+    for m in range(0,n_fin_max+1):
+        for k in range(0,n_gs_max+1):
+            FC = wf.FC(m,fin_a,fin_Req,fin_de,red_mass,
+                       k,gs_a,gs_Req,gs_de,R_min,R_max,
+                       epsabs=1e-10)
+            gs_fin[k].append(FC)
+        for l in range(0,n_res_max+1):
+            FC = FCfunc_res(m,fin_a,fin_Req,fin_de,red_mass,
+                            l,res_a,res_Req,res_de,R_min,R_max,
+                            epsabs=1e-10)
+            res_fin[l].append(FC)
+
+elif (fin_pot_type in ('hyperbel','hypfree')):
+    if (len(sys.argv) == 3):            # If a second input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
+        gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(sys.argv[2])
+        R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
+        for m in range(0,n_fin_max_X+1):
+            E_mu = fin_hyp_a / R_start
+            E_mus.insert(0,E_mu)        # Present loop starts at high energies, but these shall get high mu numbers = stand at the end of the lists -> fill lists from right to left
+            R_start = R_start + R_hyp_step
+        norm_factor = 1.
+    else:
+        FCfunc_gs = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
+        if Gamma_type == "const":
+            FCfunc_res = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
+        elif Gamma_type == "R6":
+            FCfunc_res = wf.FCmor_hyp_R6 if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp_R6
+        Req_max = max(gs_Req, res_Req)
+        R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
+        thresh_flag = -1                # Initialize flag for FC-calc stop. Counts how often in a (mu) row all FC fall below threshold
+        while (thresh_flag < 3):        # Stop FC calc if all |FC| < threshold for 3 consecutive mu
+            E_mu = fin_hyp_a / R_start
+            E_mus.insert(0,E_mu)        # Present loop starts at high energies, but these shall get high mu numbers = stand at the end of the lists -> fill lists from right to left
+            print(f'--- R_start = {R_start:7.4f} au = {sciconv.bohr_to_angstrom(R_start):7.4f} A   ###   E_mu = {E_mu:7.5f} au = {sciconv.hartree_to_ev(E_mu):7.4f} eV   ###   steps: {int((R_start - R_start_EX_max) / R_hyp_step  + 0.1)}')    #?
+    #        outfile.write(f'R_start = {R_start:5.5f} au = {sciconv.bohr_to_angstrom(R_start):5.5f} A, E_mu = {E_mu:5.5f} au = {sciconv.hartree_to_ev(E_mu):5.5f} eV, steps: {int((R_start - R_start_EX_max) / R_hyp_step  + 0.1)}\n')  #?
+            for k in range(0,n_gs_max+1):
+                FC = FCfunc_gs(k,gs_a,gs_Req,gs_de,red_mass,
+                               fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
+                               epsabs=1e-14,limit=500)
+                gs_fin[k].insert(0,FC)
+                print(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}')   #?
+    #            outfile.write(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}\n')   #?
+            for l in range(0,n_res_max+1):
+                FC = FCfunc_res(l,res_a,res_Req,res_de,red_mass,
+                                fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
+                                epsabs=1e-14,limit=500)
+                res_fin[l].insert(0,FC)
+                print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
+    #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?
+            if (R_start > Req_max):         # Do not stop FC calc as long as R_start has not surpassed all Req
+                if (all(np.abs( gs_fin[k][0]) < threshold for k in range(0, n_gs_max+1)) and
+                    all(np.abs(res_fin[l][0]) < threshold for l in range(0,n_res_max+1)) ):
+                    if (thresh_flag != -1):     # -1 can only occur at lowest R_start values (once any FC > threshold: flag is set to 0, then stays >= 0) -> dont stop calc right at start just bc FC are small there
+                        thresh_flag = thresh_flag + 1
+                else:
+                    thresh_flag = 0         # If any FC overlap > threshold, reset flag -> only (mu-)consecutive threshold check passes shall stop calc
+            print(f'thresh_flag = {thresh_flag}')                                                                               #?
+    #        outfile.write(f'thresh_flag = {thresh_flag}\n')                                                                               #?
+            R_start = R_start + R_hyp_step
+
+        # Enforce FC sum rule: for a bound vibr state |b> (b=kappa,lambda), int_0^inf dEmu <b|mu><mu|b> = 1, or discretized, sum_Emu DeltaE <b|mu><mu|b> = 1, i. e. sum_Rmu = DeltaR Va/Rmu^2 <b|mu><mu|b> = 1
+    #    norm_fin_gs = []        # Current values of the sum_Rmu with |b> = |kappa>
+    #    norm_fin_res = []       # Current values of the sum_Rmu with |b> = |lambda>
+    #    for k in range(0,n_gs_max+1):
+    #        norm_fin_gs.append(R_hyp_step / fin_hyp_a * np.sum(np.abs(gs_fin[k])**2 * np.array(E_mus)**2))
+    #        gs_fin[k] = gs_fin[k] / np.sqrt(norm_fin_gs[k])     # Rescale FC overlaps <k|m> so that sum_Rmu = 1
+    #    for l in range(0,n_res_max+1):
+    #        norm_fin_res.append(R_hyp_step / fin_hyp_a * np.sum(np.abs(res_fin[l])**2 * np.array(E_mus)**2))
+    #        res_fin[l] = res_fin[l] / np.sqrt(norm_fin_res[l])  # Rescale FC overlaps <l|m> so that sum_Rmu = 1
+    #    print('norm_fin_gs =', norm_fin_gs)
+    #    print('norm_fin_res =', norm_fin_res)
+    #    outfile.write('norm_fin_gs = ' + str(norm_fin_gs) + '\n')       #?
+    #    outfile.write('norm_fin_res = ' + str(norm_fin_res) + '\n')     #?
+#        norm_factor = 1.
+#       norm_factor = R_hyp_step / fin_hyp_a * np.sum(np.abs(gs_fin[0])**2 * np.array(E_mus)**2)   # All FC overlaps will be rescaled using the sum_Rmu with |b> = |k=0>
+#        for k in range(0,n_gs_max+1):
+#            gs_fin[k] = gs_fin[k] / np.sqrt(norm_factor)        # Rescale FC overlaps <k|m>
+#        for l in range(0,n_res_max+1):
+#            res_fin[l] = res_fin[l] / np.sqrt(norm_factor)      # Rescale FC overlaps <l|m>
+
+        n_fin_max_list = []             # Max quantum number considered in non-direct ionization for each lambda (all vibr fin states above the resp res state are discarded)
+        for E_l in E_lambdas:
+            for n_fin in range(len(E_mus)-1, -1, -1):           # Loop over E_mus from back to start
+                if (E_fin_au + E_mus[n_fin] <= Er_au + E_l):    # The highest (i.e. first, since loop starts at high n_fin) n_fin for which (E_fin + E_mu <= E_res + E_l) is n_fin_max for this l
+                    n_fin_max_list.append(n_fin)
+                    break
+        n_fin_max_X = len(E_mus) - 1                            # Will be used in hyperbel/hypfree case as the very highest nmu
+
+
 print()
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between ground and final state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
 outfile.write("Franck-Condon overlaps between ground and final state" + '\n')
+#if (fin_pot_type in ('hyperbel','hypfree')):
+#    print('norm_factor =', norm_factor)
+#    outfile.write('norm_factor = ' + str(norm_factor) + '\n')
+
 print('n_gs  ' +'n_fin  ' + '<fin|gs>')
 outfile.write('n_gs  ' +'n_fin  ' + '<fin|gs>' + '\n')
-if fin_pot_type == 'morse':
-    for i in range (0,n_gs_max+1):
-        tmp = []
-        for j in range (0,n_fin_max+1):
-            FC = wf.FC(j,fin_a,fin_Req,fin_de,red_mass,
-                       i,gs_a,gs_Req,gs_de,R_min,R_max)
-            tmp.append(FC)
-            outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
-            print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
-        gs_fin.append(tmp)
 
-# resonant state - final state <mu|lambda>
+if (fin_pot_type in ('hyperbel','hypfree')):
+    n_fin_max = n_fin_max_X
+for k in range(0,n_gs_max+1):
+    for m in range(0,n_fin_max+1):
+        FC = gs_fin[k][m]
+        outfile.write('{:4d}  {:5d}  {: 14.10E}\n'.format(k,m,FC))
+        if (fin_pot_type == 'morse'):
+            print(('{:4d}  {:5d}  {: 14.10E}'.format(k,m,FC)))
+        elif (fin_pot_type in ('hyperbel','hypfree')):
+            if (m == 0 or m == n_fin_max-1 or m == n_fin_max):      # Don't print all the FC, just the first two and last two (per GS vibr state)
+                print(('{:4d}  {:5d}  {: 14.10E}'.format(k,m,FC)))
+            elif (m == 1):
+                print(('{:4d}  {:5d}  {: 14.10E}'.format(k,m,FC)))
+                print('  ...')
+
 print()
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between final and resonant state")
@@ -326,29 +465,38 @@ outfile.write('\n' + '----------------------------------------------------------
 outfile.write("Franck-Condon overlaps between final and resonant state" + '\n')
 print('n_res  ' +'n_fin  ' + '<fin|res>')
 outfile.write('n_res  ' +'n_fin  ' + '<fin|res>' + '\n')
-if fin_pot_type == 'morse':
-    for i in range (0,n_res_max+1):
-        tmp = []
-        for j in range (0,n_fin_max+1):
-                if Gamma_type == 'const':
-                    FC = wf.FC(j,fin_a,fin_Req,fin_de,red_mass,
-                        i,res_a,res_Req,res_de,R_min,R_max)
-                if Gamma_type == 'R6':
-                    FC = wf.FCR6j,fin_a,fin_Req,fin_de,red_mass,                          # variation of the FC subroutine that considers 1/R^3
-                        i,res_a,res_Req,res_de,R_min,R_max)
-                tmp.append(FC)
-                outfile.write('{:5d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
-                print(('{:5d}  {:5d}  {:14.10E}'.format(i,j,FC)))
-                res_fin.append(tmp)
+
+for l in range(0,n_res_max+1):
+    if (fin_pot_type in ('hyperbel','hypfree')):
+        n_fin_max = n_fin_max_list[l]
+    for m in range(0,n_fin_max+1):
+        FC = res_fin[l][m]
+        outfile.write('{:5d}  {:5d}  {: 14.10E}\n'.format(l,m,FC))
+        if (fin_pot_type == 'morse'):
+            print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
+        elif (fin_pot_type in ('hyperbel','hypfree')):
+            if (m == 0 or m == n_fin_max-1 or m == n_fin_max):
+                print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
+            elif (m == 1):
+                print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
+                print('   ...')
+if (fin_pot_type in ('hyperbel','hypfree')):
+    print("All overlaps between ground or resonant state and final state\n outside the indicated quantum numbers are considered zero")
+    outfile.write("All overlaps between ground or resonant state and final state\n outside the indicated quantum numbers are considered zero\n")
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
 indir_FCsums = []
-for i in range (0,n_res_max+1):
+for l in range (0,n_res_max+1):
     indir_FCsum = 0
-    for j in range (0,n_fin_max+1):
-        tmp = np.conj(res_fin[i][j]) * gs_fin[0][j]     # = <mu_j|lambda_i>* <mu_j|kappa_0> = <lambda_i|mu_j><mu_j|kappa_0> = <li|mj><mj|k0>
-        indir_FCsum = indir_FCsum + tmp                 # = sum_j <li|mj><mj|k0>
-    indir_FCsums.append(indir_FCsum)                    # = [sum_j <l1|mj><mj|k0>, sum_j <l2|mj><mj|k0>, ...]
+    factor = 1
+    if (fin_pot_type in ('hyperbel','hypfree')):
+        n_fin_max = n_fin_max_list[l]
+    for m in range (0, n_fin_max + 1):
+        if (fin_pot_type in ('hyperbel','hypfree')):            # R-DOS for 'integration' over R_mu instead of [E_]mu
+            factor = R_hyp_step * E_mus[m]**2 / fin_hyp_a
+        tmp = np.conj(res_fin[l][m]) * gs_fin[0][m] * factor    # <mu|lambda>* <mu|kappa=0> = <lambda|mu><mu|kappa=0> = <l|m><m|k=0>
+        indir_FCsum = indir_FCsum + tmp                         # sum_m <l|m><m|k=0>
+    indir_FCsums.append(indir_FCsum)                            # [sum_m <l=0|m><m|k=0>, sum_m <l=1|m><m|k=0>, ...]
 print()
 print('-----------------------------------------------------------------')
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
@@ -359,16 +507,20 @@ print('Effective decay widths in eV and lifetimes in s:')
 print('n_res  W_l [eV]          tau_l [s]')
 outfile.write('Effective decay widths in eV and lifetimes in s:' + '\n')
 outfile.write('n_res  W_l [eV]          tau_l [s]' + '\n')
-if fin_pot_type == 'morse':
-    W_lambda = []   # [W_(l=0), W_(l=1), ...]
-    for i in range (0,n_res_max+1):
-        tmp = 0
-        for j in range (0,n_fin_max+1):
-            tmp = tmp + VEr_au**2 * (res_fin[i][j])**2      # W_l = sum_j ( VEr**2 <mj|li>**2 )
-        W_lambda.append(tmp)
-        ttmp = 1./ (2 * np.pi * tmp)        # lifetime tau_l = 1 / (2 pi W_l)
-        print(f'{i:5d}  {sciconv.hartree_to_ev(tmp):14.10E}  {sciconv.atu_to_second(ttmp):14.10E}')
-        outfile.write(f'{i:5d}  {sciconv.hartree_to_ev(tmp):14.10E}  {sciconv.atu_to_second(ttmp):14.10E}\n')
+W_lambda = []   # [W_(l=0), W_(l=1), ...]
+for l in range (0,n_res_max+1):
+    tmp = 0
+    factor = 1
+    if (fin_pot_type in ('hyperbel','hypfree')):
+        n_fin_max = n_fin_max_list[l]       # To each lambda their own n_fin_max (v.s.)
+    for m in range (0, n_fin_max + 1):
+        if (fin_pot_type in ('hyperbel','hypfree')):
+            factor = R_hyp_step * np.array(E_mus[m])**2 / fin_hyp_a
+        tmp = tmp + VEr_au**2 * np.abs(res_fin[l][m])**2 * factor      # W_l = sum_m ( VEr**2 |<m|l>|**2 ) for Morse or W_l = sum_m ( DeltaR R-DOS(m) VEr**2 |<m|l>|**2 ) for cont vibr fin states
+    W_lambda.append(tmp)
+    ttmp = 1./ (2 * np.pi * tmp)        # lifetime tau_l = 1 / (2 pi W_l)
+    print(f'{l:5d}  {sciconv.hartree_to_ev(tmp):14.10E}  {sciconv.atu_to_second(ttmp):14.10E}')
+    outfile.write(f'{l:5d}  {sciconv.hartree_to_ev(tmp):14.10E}  {sciconv.atu_to_second(ttmp):14.10E}\n')
 print()
 outfile.write('\n')
 
@@ -472,6 +624,9 @@ prefac_res1 = VEr_au * rdg_au / (n_res_max + 1)
 prefac_indir1 = -1j * np.pi * VEr_au**2 * cdg_au_V / (n_res_max + 1)
 prefac_dir1 = 1j * cdg_au_V
 
+if (fin_pot_type in ('hyperbel','hypfree')):
+    n_fin_max = n_fin_max_X
+
 
 ########################################
 # now follow the integrals themselves, for the temporal phases:
@@ -492,19 +647,27 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
     print('t_s = ', t_s)
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
+    cnt = 0     # initialize counter for printing progress
     while (E_kin_au <= E_max_au):
+        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+            print('|', end = '', flush = True)
+            cnt = 0
+        else:
+            print('-', end = '', flush = True)
+            cnt = cnt + 1
+        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
         p_au = np.sqrt(2*E_kin_au)
+        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin); for continuous mu: int ~ sum
 
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2      (sum of contributions of all final states with E_kin)
-        for nmu in range (0,n_fin_max+1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: Morse vibrational eigenvalues of fin state
-#            Er_au = Er_a_au
+        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+    #            Er_au = Er_a_au
             
             # Direct term
             if (integ_outer == "quadrature"):
                 I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), t_au)
                 dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-
 
             elif (integ_outer == "romberg"):
                 I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), t_au)
@@ -513,6 +676,8 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
             # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
             J = 0
             for nlambda in range (0,n_res_max+1):
+                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+                    continue
                 E_lambda = E_lambdas[nlambda]
                 W_au = W_lambda[nlambda]
                 if (integ_outer == "quadrature"):
@@ -535,10 +700,19 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
                      + res_J1
                      + indir_J1
                      )
-
+    
             # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
             square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+            if (fin_pot_type in ('hyperbel','hypfree')):
+                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                old_square = square
+                square = square * factor
             sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
+
         squares = np.append(squares, sum_square)
 
         string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
@@ -568,7 +742,7 @@ while (t_au >= TX_au/2\
 #-------------------------------------------------------------------------
     outfile.write('between the pulses \n')
     print('between the pulses')
-    
+
     # all equal to during-1st-pulse section, except for integrating over entire XUV pulse now
 
     outlines = []       # will contain lines containing triples of E_kin, time and signal intensity
@@ -579,19 +753,29 @@ while (t_au >= TX_au/2\
     print('t_s = ', t_s)
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
+    cnt = 0     # initialize counter for printing progress
     while (E_kin_au <= E_max_au):
+        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+            print('|', end = '', flush = True)
+            cnt = 0
+        else:
+            print('-', end = '', flush = True)
+            cnt = cnt + 1
+        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
         p_au = np.sqrt(2*E_kin_au)
+        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin)
 
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2      (sum of contributions of all final states with E_kin)
-        for nmu in range (0,n_fin_max+1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: Morse vibrational eigenvalues of fin state
-    #        Er_au = Er_a_au
+        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+    #            Er_au = Er_a_au
             
             # Direct term
             if (integ_outer == "quadrature"):
                 I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), TX_au/2)
                 dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-
+#                    print(nmu, gs_fin[0][nmu], dir_J1)   #?
+    
             elif (integ_outer == "romberg"):
                 I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), TX_au/2)
                 dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
@@ -599,9 +783,11 @@ while (t_au >= TX_au/2\
             # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
             J = 0
             for nlambda in range (0,n_res_max+1):
+                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+#                    print(nmu, nlambda, 'skipped')  #?
+                    continue
                 E_lambda = E_lambdas[nlambda]
                 W_au = W_lambda[nlambda]
-      
                 if (integ_outer == "quadrature"):
                     res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
     
@@ -609,32 +795,41 @@ while (t_au >= TX_au/2\
                               * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                     indir_J1 = (prefac_indir1 * res_I[0]
                                 * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                
+#                    print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
+    
                 elif (integ_outer == "romberg"):
                     res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
-
+                
                     res_J1 = (prefac_res1 * res_I
                               * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                     indir_J1 = (prefac_indir1 * res_I
                                 * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-    
+
                 J = (J
                      + res_J1
                      + indir_J1
                      )
-   
+    
             # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
             square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+            if (fin_pot_type in ('hyperbel','hypfree')):
+                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                old_square = square
+                square = square * factor
             sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
+
         squares = np.append(squares, sum_square)
 
         string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
         outlines.append(string)
         
         E_kin_au = E_kin_au + E_step_au     # @ t = const.
-
     
-
+    
     in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
     in_out.doout_movie(movie_out, outlines)
     print()
@@ -643,7 +838,7 @@ while (t_au >= TX_au/2\
         for i in range (0, len(max_pos)):
             print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
             outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
-
+    
 
     t_au = t_au + timestep_au
 

@@ -4,11 +4,11 @@ cdg_au        = 0.5              # transition dipole moment into any continuum s
 q             = 1
 # parameters of the investigated system
 # the ground state (vibrational gs of electronic gs) energy is being defined as EG = 0
-Er_a_eV       =  49.9911         # resonance energy (at potential minimum) in eV
+Er_a_eV       =  49.7477         # resonance energy (at potential minimum) in eV
 Er_b_eV       =   0.0
 E_fin_eV      =  39.9004         # final state energy (at potential minimum) in eV
 tau_s         =  20E-15          # lifetime in s
-E_fin_eV_2    =   0.0
+E_fin_eV_2    =   0.0 
 tau_a_s       =   0.0
 tau_b_s       =   0.0
 tau_s_2       =   0.0
@@ -36,7 +36,7 @@ timestep_s    = 149.9E-15        # evaluate expression every timestep_s seconds
 #
 E_min_eV      =  9.7995
 E_max_eV      = 10.5
-E_step_eV     =  0.001          # energy difference between different evaluated electron kinetic energies
+E_step_eV     =  0.001           # energy difference between different evaluated electron kinetic energies
 #
 integ         = analytic         # options: analytic, (quadrature, romberg - both currently unavailable)
 integ_outer   = quadrature       # options: quadrature, romberg
@@ -54,13 +54,19 @@ gs_a          = 1.5
 gs_Req        = 6.0
 gs_const      = 0.0
 # resonant state parameters
-res_de        = 0.0003674932217572587
-res_a         = 4.9512
+res_de        = 0.0183747
+res_a         = 15.3994
 res_Req       = 6.0
 res_const     = 0.0
 # final state parameters
-fin_a         = 0.0036749        # for morse: fin_de
-fin_b         = 21.7512          # for morse: fin_a
-fin_c         = 6.0              # for morse: fin_Req
-fin_d         = 0.0              # for morse: fin_const
-fin_pot_type  = morse            # options: morse
+fin_a         = 0.0833354        # for morse: fin_de; for hyperbel or hypfree: V_a in au (Hartree * Bohr)
+fin_b         = 1.4699729        # for morse: fin_a; for hyperbel or hypfree: V_b in au (Hartree)
+fin_c         = 0.01890          # for morse: fin_Req; for hyperbel or hypfree: step width for R_start for vibrational energies (fin_a/R_start) in au (Bohr)
+fin_d         = 1.E-05           # for morse: fin_const; for hyperbel or hypfree: FC factor threshold for calculating the trs integral
+fin_pot_type  = hyperbel         # options: morse, hyperbel, hypfree
+## final state parameters
+#fin_a         = 0.003675
+#fin_b         = 21.7512
+#fin_c         = 6.0
+#fin_d         = 0.0
+#fin_pot_type  = morse

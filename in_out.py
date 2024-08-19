@@ -290,7 +290,6 @@ def read_input(inputfile, outfile):
         elif (words[0] == 'gs_de'):
             outfile.write('Parameters of potential energy curves:' + '\n')
             gs_de = float(words[2])
-            print("found gs_de")
             outfile.write('gs_de = ' + str(gs_de) + '\n')
         elif (words[0] == 'gs_a'):
             gs_a = float(words[2])
@@ -644,6 +643,60 @@ def check_input(Er, E_fin, Gamma,
     
 
 #-------------------------------------------------------------------------
+# input of Franck-Condon overlap integrals including final states.
+
+def read_fc_input(inputfile):
+    # Python 3 compatibility hack
+    try:
+        unicode('')
+    except NameError:
+        unicode = str
+
+
+    state = 0       # Encodes where we are in the input file (0: before gs-fin, 1: gs-fin, 2: between gs-fin and res-fin, 3: res-fin)
+    prev_n = 0      # The quantum number of gs in gs-fin or res in res-fin in the previous line
+    gs_fin = [[]]
+    res_fin = [[]]
+
+    with open(inputfile, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            words = line.split()
+            if (len(words) == 0):
+                continue
+
+            if unicode(words[0]).isnumeric():
+                if (state == 0):
+                    state = 1
+                elif (state == 2):
+                    state = 3
+            else:
+                if (state == 1):
+                    state = 2
+                    prev_n = 0
+                elif (state == 3):
+                    break
+                continue
+
+            fcs = gs_fin if (state == 1) else res_fin
+            if (prev_n != int(words[0])):
+                prev_n = int(words[0])
+                fcs.append(list())
+            fcs[prev_n].append(complex(words[-1]))
+
+    n_fin_max_list = []             # Max quantum number considered in non-direct ionization for each lambda (all vibr fin states above the resp res state are discarded)
+    for l in res_fin:
+        n_fin_max_list.append(len(l) - 1)
+    n_fin_max_X = len(gs_fin[0]) - 1                            # Will be used in hyperbel/hypfree case as the very highest nmu
+
+    return (gs_fin, res_fin, n_fin_max_list, n_fin_max_X)
+
+
+
+
+
+#-------------------------------------------------------------------------
+#   output
 #   output
 def prep_output(I, Omega_au, t_au):
 #    square = np.absolute(I)**2
