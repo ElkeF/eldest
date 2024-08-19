@@ -347,12 +347,12 @@ if (fin_pot_type == 'morse'):
         for k in range(0,n_gs_max+1):
             FC = wf.FC(m,fin_a,fin_Req,fin_de,red_mass,
                        k,gs_a,gs_Req,gs_de,R_min,R_max,
-                       epsabs=1e-10)
+                       epsabs=1e-14)
             gs_fin[k].append(FC)
         for l in range(0,n_res_max+1):
             FC = FCfunc_res(m,fin_a,fin_Req,fin_de,red_mass,
                             l,res_a,res_Req,res_de,R_min,R_max,
-                            epsabs=1e-10)
+                            epsabs=1e-14)
             res_fin[l].append(FC)
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
