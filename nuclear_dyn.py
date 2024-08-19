@@ -285,6 +285,11 @@ for l in range(0,n_res_max+1):
 
 
 # Numerical integration failsafe check: calculate test FC overlap integral
+print()
+print('-----------------------------------------------------------------')
+outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
+print('Numerical integration test')
+
 if Gamma_type == 'const':
     Gamma_factor = lambda R: 1
 elif Gamma_type == 'R6':
@@ -306,19 +311,17 @@ elif fin_pot_type == 'hyperbel':
 tmp = np.zeros(2)
 while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
     R_min -= 0.01                                   # if so: lower the lower integration bound by 0.01 bohr
-    tmp = integrate.quad(func, R_min, R_max,epsabs=1e-10,limit=500)
-    print(R_min, tmp)
+    tmp = integrate.quad(func, R_min, R_max,epsabs=1e-14,limit=500)
+    #print(R_min, tmp)  #?
 
-print()
-print('-----------------------------------------------------------------')
 print('Lower bound of integration over R for the Franck-Condon factors')
 print('R_min = {:14.10E} au = {:5.5f} A'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
-outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write('\n' + 'Lower bound of integration over R for the Franck-Condon factors' + '\n')
+outfile.write('Lower bound of integration over R for the Franck-Condon factors' + '\n')
 outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
 
 
 # ground state - resonance state <lambda|kappa>
+print()
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between ground and resonance state")
 print('n_gs  ' + 'n_res  ' + '<res|gs>')
