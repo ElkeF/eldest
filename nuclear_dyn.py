@@ -205,10 +205,10 @@ VEr_au        = np.sqrt(Gamma_au/ (2*np.pi))
 
 cdg_au_V = rdg_au / ( q * np.pi * VEr_au)
 
-if Gamma_type == 'constant':
+if Gamma_type == 'const':
     print('VEr_au = ', VEr_au)
     outfile.write('VEr_au = ' + str(VEr_au) + '\n')
-elif Gamma_type =='R6':
+elif Gamma_type == 'R6':
     VEr_au = VEr_au*res_Req**3                            # adjusts VEr_au by the R dependent factor
     print('VEr_au_adjusted = ', VEr_au)
     outfile.write('VEr_au_adjusted = ' + str(VEr_au) + '\n')
@@ -341,12 +341,21 @@ elif not (args.fc == None) and not (args.gamma == None):
     pure_out.close
     movie_out.close
     sys.exit('!!! Two additional input files were provided. Programme terminated.')
+elif (fin_pot_type == 'morse') and not (args.fc == None):
+    outfile.close
+    pure_out.close
+    movie_out.close
+    sys.exit('!!! FC input is not supported for Morse-potential final states. Programme terminated.')
 
-if not (args.gamma == None):
+if Gamma_type == 'const':
+    V_of_R = lambda R: 1
+elif Gamma_type == 'R6':
+    V_of_R = lambda R: R**(-3)
+elif not (args.gamma == None):
     with open(args.gamma, 'rb') as gammafile:
         Gamma_of_R = pickle.load(gammafile)
     V_of_R = lambda R: np.sqrt(Gamma_of_R(R) / (2*np.pi))
-else:
+else:                           # For 'external' but from FC file
     V_of_R = lambda R: 1
 
 
@@ -356,25 +365,18 @@ print('-----------------------------------------------------------------')
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
 print('Numerical integration test')
 
-if Gamma_type == 'const':
-    Gamma_factor = lambda R: 1
-elif Gamma_type == 'R6':
-    Gamma_factor = lambda R: R**(-3)
-elif Gamma_type == 'external':
-    Gamma_factor = V_of_R
-
 if fin_pot_type == 'morse':
     func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
                       * wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de)
-                      * Gamma_factor(R))
+                      * V_of_R(R))
 elif fin_pot_type == 'hypfree':
     func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
                       * wf.psi_freehyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
-                      * Gamma_factor(R))
+                      * V_of_R(R))
 elif fin_pot_type == 'hyperbel':
     func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
                       * wf.psi_hyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
-                      * Gamma_factor(R))
+                      * V_of_R(R))
 
 tmp = np.zeros(2)
 while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
@@ -399,9 +401,9 @@ outfile.write('n_gs  ' + 'n_res  ' + '<res|gs>' + '\n')
 for i in range (0,n_gs_max+1):
     tmp = []
     for j in range (0,n_res_max+1):
-        FC = wf.FC(j,res_a,res_Req,res_de,red_mass,
-                   i,gs_a,gs_Req,gs_de,R_min,R_max,
-                   epsabs=1e-14)
+        FC = wf.FCmor_mor(j,res_a,res_Req,res_de,red_mass,
+                          i,gs_a,gs_Req,gs_de,R_min,R_max,
+                          epsabs=1e-14)
         tmp.append(FC)
         outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
         print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
@@ -409,22 +411,16 @@ for i in range (0,n_gs_max+1):
     
 # ground state - final state <mu|kappa>   and   resonance state - final state <mu|lambda>
 if (fin_pot_type == 'morse'):
-    if Gamma_type == "const":       # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
-        FCfunc_res = wf.FC
-    elif Gamma_type == "R6":
-        FCfunc_res = wf.FCmor_mor_R6
-    elif Gamma_type == 'external':
-        FCfunc_res = wf.FCmor_mor_ext
     for m in range(0,n_fin_max+1):
         for k in range(0,n_gs_max+1):
-            FC = wf.FC(m,fin_a,fin_Req,fin_de,red_mass,
-                       k,gs_a,gs_Req,gs_de,R_min,R_max,
-                       epsabs=1e-14)
+            FC = wf.FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                              k,gs_a,gs_Req,gs_de,R_min,R_max,
+                              epsabs=1e-14)
             gs_fin[k].append(FC)
         for l in range(0,n_res_max+1):
-            FC = FCfunc_res(m,fin_a,fin_Req,fin_de,red_mass,
-                            l,res_a,res_Req,res_de,R_min,R_max,
-                            epsabs=1e-14,V_of_R=V_of_R)
+            FC = wf.FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                              l,res_a,res_Req,res_de,R_min,R_max,
+                              epsabs=1e-14,V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
             res_fin[l].append(FC)
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
@@ -437,13 +433,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             R_start = R_start + R_hyp_step
         norm_factor = 1.
     else:
-        FCfunc_gs = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
-        if Gamma_type == "const":
-            FCfunc_res = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
-        elif Gamma_type == "R6":
-            FCfunc_res = wf.FCmor_hyp_R6 if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp_R6
-        elif Gamma_type == "external":
-            FCfunc_res = wf.FCmor_hyp_ext if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp_ext
+        FCfunc = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
         Req_max = max(gs_Req, res_Req)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         thresh_flag = -1                # Initialize flag for FC-calc stop. Counts how often in a (mu) row all FC fall below threshold
@@ -453,16 +443,16 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             print(f'--- R_start = {R_start:7.4f} au = {sciconv.bohr_to_angstrom(R_start):7.4f} A   ###   E_mu = {E_mu:7.5f} au = {sciconv.hartree_to_ev(E_mu):7.4f} eV   ###   steps: {int((R_start - R_start_EX_max) / R_hyp_step  + 0.1)}')    #?
     #        outfile.write(f'R_start = {R_start:5.5f} au = {sciconv.bohr_to_angstrom(R_start):5.5f} A, E_mu = {E_mu:5.5f} au = {sciconv.hartree_to_ev(E_mu):5.5f} eV, steps: {int((R_start - R_start_EX_max) / R_hyp_step  + 0.1)}\n')  #?
             for k in range(0,n_gs_max+1):
-                FC = FCfunc_gs(k,gs_a,gs_Req,gs_de,red_mass,
-                               fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
-                               epsabs=1e-14,limit=500)
+                FC = FCfunc(k,gs_a,gs_Req,gs_de,red_mass,
+                            fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
+                            epsabs=1e-14,limit=500)
                 gs_fin[k].insert(0,FC)
                 print(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}\n')   #?
             for l in range(0,n_res_max+1):
-                FC = FCfunc_res(l,res_a,res_Req,res_de,red_mass,
-                                fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
-                                epsabs=1e-14,limit=500,V_of_R=V_of_R)
+                FC = FCfunc(l,res_a,res_Req,res_de,red_mass,
+                            fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
+                            epsabs=1e-14,limit=500,V_of_R=V_of_R)
                 res_fin[l].insert(0,FC)
                 print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?
