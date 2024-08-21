@@ -10,21 +10,24 @@
 #                                                                        #
 ##########################################################################
 # written by: Elke Fasshauer November 2020                               #
-# extended by: Alexander Riegel July 2023                                #
+# extended by: Alexander Riegel July 2023 - August 2024                  #
 ##########################################################################
 
+import argparse
+from datetime import datetime
+import numpy as np
+import pickle
 import scipy
 import scipy.integrate as integrate
 from scipy.signal import argrelextrema
-from scipy.special import erf
-import numpy as np
-import sciconv
-import complex_integration as ci
-import in_out
+#from scipy.special import erf
 import sys
 import warnings
+
+import complex_integration as ci
+import in_out
+import sciconv
 import wellenfkt as wf
-from datetime import datetime
 
 dt_start = datetime.now()
 print(str(dt_start))
@@ -33,7 +36,48 @@ print(str(dt_start))
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
 
-infile = sys.argv[1]
+parser = argparse.ArgumentParser(
+        description='''ELDEST -- nuclear_dyn.py :
+        A programme to simulate the time-resolved RICD spectroscopy
+        including quantum nuclear dynamics.''',
+        epilog='Originally written by Elke Fasshauer, extended by Alexander V. Riegel.')
+parser.add_argument('infile', help='Input file for simulation, probably photonucl.in')
+parser.add_argument('-f', '--fc', help='''Optional file with pre-calculated "Franck-Condon overlap integrals"
+                    (which may or may not include weighting functions inside the integrand)
+                    that include the repulsive-potential final state(s).
+                    This option does not work for a Morse-potential final state.
+                    The file is thought to be a reduced copy of eldest.out from a previous calculation:
+                    It may start with an arbitrary number of lines (including zero) preceding the gs-fin FC integrals
+                    provided that their first word is not numeric.
+                    Then the gs-fin integrals shall follow, with the first word indicating the gs quantum number
+                    and the last word being the integral value.
+                    At least one line beginning with a non-numeric word
+                    then separates the gs-fin integrals from the res-fin integrals.
+                    These shall have the structure as described for the gs-fin integrals.
+                    There shall be no dividing line between different res quantum numbers.
+                    The first line not beginning with a numeric word then indicates the endpoint for the read-in routine;
+                    all lines thereafter will be ignored, regardless of their first word.
+                    The gs-res integrals shall not be present and will in every case be directly calulated.
+                    +++ This option is incompatible with the -g/--gamma option.''')
+#parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
+#                    of the decay width Gamma on the internuclear distance R.
+#                    The information can be stored as a univariate function or an SciPy interpolator.
+#                    Permissible are, besides user-defined functions, all np.foo and scipy.foo,
+#                    with full tree beginning at the module, e.g. np.sqrt;
+#                    myfunc defined as def myfunc(x): return np.polynomial.hermite.Hermite((2,0,x));
+#                    scipy.interpolate.PchipInterpolator(xarray,yarray).
+#                    The file shall be binary and contain the functional dependence in a pickled form.
+#                    +++ This option is incompatible with the -f/--fc option.''')
+# The above may be achieved with the module dill which is mightier than pickle, but it is only available for version > 3.8.
+parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
+                    of the decay width Gamma on the internuclear distance R.
+                    At the moment, only scipy.interpolate interpolator are permissible, e.g.
+                    scipy.interpolate.PchipInterpolator(xarray,yarray).
+                    The file shall be binary and contain the functional dependence in a pickled form.
+                    +++ This option is incompatible with the -f/--fc option.''')
+args = parser.parse_args()
+
+infile = args.infile
 print(infile)
 
 #-------------------------------------------------------------------------
@@ -92,7 +136,8 @@ tau_au_1       = sciconv.second_to_atu(tau_s)       # lifetime for sRICD res. st
 tau_au         = tau_au_1                           # (same as for Er)
 Gamma_au       = 1. / tau_au
 Gamma_eV       = sciconv.hartree_to_ev(Gamma_au)
-outfile.write('Gamma_eV = ' + str(Gamma_eV) + '\n')
+if Gamma_type == 'const':
+    outfile.write('Gamma_eV = ' + str(Gamma_eV) + '\n')
 
 # second final state
 #E_fin_au_2       = sciconv.ev_to_hartree(E_fin_eV_2)
@@ -156,19 +201,19 @@ E_min_au = sciconv.ev_to_hartree(E_min_eV)
 E_max_au = sciconv.ev_to_hartree(E_max_eV)
 
 VEr_au        = np.sqrt(Gamma_au/ (2*np.pi))
-print('VEr_au = ', VEr_au)
-outfile.write('VEr_au = ' + str(VEr_au) + '\n')
-
 #VEr_au_1      = VEr_au      # (same as for Er)
 
-#test q=1
 cdg_au_V = rdg_au / ( q * np.pi * VEr_au)
 
-if Gamma_type =='R6':
+if Gamma_type == 'constant':
+    print('VEr_au = ', VEr_au)
+    outfile.write('VEr_au = ' + str(VEr_au) + '\n')
+elif Gamma_type =='R6':
     VEr_au = VEr_au*res_Req**3                            # adjusts VEr_au by the R dependent factor
     print('VEr_au_adjusted = ', VEr_au)
     outfile.write('VEr_au_adjusted = ' + str(VEr_au) + '\n')
-
+elif Gamma_type == 'external':
+    VEr_au = 1          # all info about V carried in the 'Franck-Condon' integrals, so ignore VEr_au
 
 
 #-------------------------------------------------------------------------
@@ -281,6 +326,29 @@ for k in range(0,n_gs_max+1):   # prepare the above (empty) sub-lists
 for l in range(0,n_res_max+1):
     res_fin.append(list())
 
+if not (Gamma_type == 'external') and not (args.gamma == None):
+    outfile.close
+    pure_out.close
+    movie_out.close
+    sys.exit('!!! Gamma-R-dependence file was provided although Gamma_type is not "external". Programme terminated.')
+elif (Gamma_type == 'external') and (args.fc == None) and (args.gamma == None):
+    outfile.close
+    pure_out.close
+    movie_out.close
+    sys.exit('!!! Gamma_type is "external" but no additional input file was provided. Programme terminated.')
+elif not (args.fc == None) and not (args.gamma == None):
+    outfile.close
+    pure_out.close
+    movie_out.close
+    sys.exit('!!! Two additional input files were provided. Programme terminated.')
+
+if not (args.gamma == None):
+    with open(args.gamma, 'rb') as gammafile:
+        Gamma_of_R = pickle.load(gammafile)
+    V_of_R = lambda R: np.sqrt(Gamma_of_R(R) / (2*np.pi))
+else:
+    V_of_R = lambda R: 1
+
 
 # Numerical integration failsafe check: calculate test FC overlap integral
 print()
@@ -292,6 +360,8 @@ if Gamma_type == 'const':
     Gamma_factor = lambda R: 1
 elif Gamma_type == 'R6':
     Gamma_factor = lambda R: R**(-3)
+elif Gamma_type == 'external':
+    Gamma_factor = V_of_R
 
 if fin_pot_type == 'morse':
     func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
@@ -331,7 +401,7 @@ for i in range (0,n_gs_max+1):
     for j in range (0,n_res_max+1):
         FC = wf.FC(j,res_a,res_Req,res_de,red_mass,
                    i,gs_a,gs_Req,gs_de,R_min,R_max,
-                   epsabs=1e-10)
+                   epsabs=1e-14)
         tmp.append(FC)
         outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
         print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
@@ -343,6 +413,8 @@ if (fin_pot_type == 'morse'):
         FCfunc_res = wf.FC
     elif Gamma_type == "R6":
         FCfunc_res = wf.FCmor_mor_R6
+    elif Gamma_type == 'external':
+        FCfunc_res = wf.FCmor_mor_ext
     for m in range(0,n_fin_max+1):
         for k in range(0,n_gs_max+1):
             FC = wf.FC(m,fin_a,fin_Req,fin_de,red_mass,
@@ -352,12 +424,12 @@ if (fin_pot_type == 'morse'):
         for l in range(0,n_res_max+1):
             FC = FCfunc_res(m,fin_a,fin_Req,fin_de,red_mass,
                             l,res_a,res_Req,res_de,R_min,R_max,
-                            epsabs=1e-14)
+                            epsabs=1e-14,V_of_R=V_of_R)
             res_fin[l].append(FC)
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
-    if (len(sys.argv) == 3):            # If a second input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
-        gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(sys.argv[2])
+    if not (args.fc == None):            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
+        gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         for m in range(0,n_fin_max_X+1):
             E_mu = fin_hyp_a / R_start
@@ -370,6 +442,8 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             FCfunc_res = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
         elif Gamma_type == "R6":
             FCfunc_res = wf.FCmor_hyp_R6 if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp_R6
+        elif Gamma_type == "external":
+            FCfunc_res = wf.FCmor_hyp_ext if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp_ext
         Req_max = max(gs_Req, res_Req)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         thresh_flag = -1                # Initialize flag for FC-calc stop. Counts how often in a (mu) row all FC fall below threshold
@@ -388,7 +462,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             for l in range(0,n_res_max+1):
                 FC = FCfunc_res(l,res_a,res_Req,res_de,red_mass,
                                 fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
-                                epsabs=1e-14,limit=500)
+                                epsabs=1e-14,limit=500,V_of_R=V_of_R)
                 res_fin[l].insert(0,FC)
                 print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?

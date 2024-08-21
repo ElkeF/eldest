@@ -283,6 +283,10 @@ def read_input(inputfile, outfile):
                 Gamma_type = 'exp'
                 print('Dependence of Gamma on R: e^(-aR)')
                 outfile.write('Dependence of Gamma on R: e^(-aR) \n')
+            elif (words[2] == 'external'):
+                Gamma_type = 'external'
+                print('Dependence of Gamma on R: provided by external file')
+                outfile.write('Dependence of Gamma on R: provided by external file \n')
             else:
                 print('no Gamma type selected')
                 outfile.write('no Gamma type selected \n')

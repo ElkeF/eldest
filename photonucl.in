@@ -40,7 +40,7 @@ E_step_eV     =  0.001           # energy difference between different evaluated
 #
 integ         = analytic         # options: analytic, (quadrature, romberg - both currently unavailable)
 integ_outer   = quadrature       # options: quadrature, romberg
-Gamma_type    = R6               # options: const, R6, exp
+Gamma_type    = R6               # options: const, R6, external
 #
 # parameters for the nuclear dynamics
 mass1         = 20.1797          # in g/mol

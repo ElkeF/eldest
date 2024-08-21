@@ -171,6 +171,18 @@ def FCmor_freehyp_R6(n1,alpha1,Req1,De1,red_mass,V2a,V2b,R_start,R_min,R_max,**k
     return FC
 
 
+def FCmor_freehyp_ext(n1,alpha1,Req1,De1,red_mass,V2a,V2b,R_start,R_min,R_max,**kwargs):
+    lim = kwargs.get("limit", 50)
+    phi = kwargs.get("phase", 0)
+    eps = kwargs.get("epsabs", 1.49e-8)
+    V_of_R = kwargs.get("V_of_R", lambda R: 1)
+    func = lambda R: (np.conj(psi_n(R,n1,alpha1,Req1,red_mass,De1))
+                            * psi_freehyp(R,V2a,V2b,red_mass,R_start,phi) * V_of_R(R) )
+    tmp = ci.complex_quadrature(func, R_min, R_max, epsabs=eps, limit=lim)
+    FC = tmp[0]
+    return FC
+
+
 def FCfreehyp_freehyp(V1a,V1b,R_start1,red_mass,V2a,V2b,R_start2,R_min,R_max,**kwargs):
     lim = kwargs.get("limit", 50)
     phi1 = kwargs.get("phase1", 0)
@@ -242,6 +254,28 @@ def FCmor_mor_R6(n1,alpha1,Req1,De1,red_mass,n2,alpha2,Req2,De2,R_min,R_max,**kw
     eps = kwargs.get("epsabs", 1.49e-8)
     func = lambda R: (np.conj(psi_n(R,n1,alpha1,Req1,red_mass,De1))
                             * psi_n(R,n2,alpha2,Req2,red_mass,De2) * R**(-3) )
+    tmp = integrate.quad(func, R_min, R_max, epsabs=eps, limit=lim)
+    FC = tmp[0]
+    return FC
+
+
+def FCmor_hyp_ext(n1,alpha1,Req1,De1,red_mass,V2a,V2b,R_start,R_min,R_max,**kwargs):
+    lim = kwargs.get("limit", 50)
+    eps = kwargs.get("epsabs", 1.49e-8)
+    V_of_R = kwargs.get("V_of_R", lambda R: 1)
+    func = lambda R: (np.conj(psi_n(R,n1,alpha1,Req1,red_mass,De1))
+                            * psi_hyp(R,V2a,V2b,red_mass,R_start) * V_of_R(R) )
+    tmp = ci.complex_quadrature(func, R_min, R_max, epsabs=eps, limit=lim)
+    FC = tmp[0]
+    return FC
+
+
+def FCmor_mor_ext(n1,alpha1,Req1,De1,red_mass,n2,alpha2,Req2,De2,R_min,R_max,**kwargs):
+    lim = kwargs.get("limit", 50)
+    eps = kwargs.get("epsabs", 1.49e-8)
+    V_of_R = kwargs.get("V_of_R", lambda R: 1)
+    func = lambda R: (np.conj(psi_n(R,n1,alpha1,Req1,red_mass,De1))
+                            * psi_n(R,n2,alpha2,Req2,red_mass,De2) * V_of_R(R) )
     tmp = integrate.quad(func, R_min, R_max, epsabs=eps, limit=lim)
     FC = tmp[0]
     return FC
