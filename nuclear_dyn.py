@@ -42,6 +42,7 @@ outfile = open("eldest.out", mode='w')
 pure_out = open('full.dat', mode='w')
 movie_out = open('movie.dat', mode='w')
 #popfile = open("pop.dat", mode='w')
+wp_res_out = open('wp_res.dat', mode='w')
 
 outfile.write(str(dt_start) + '\n')
 outfile.write("The results were obtained with nuclear_dyn.py \n")
@@ -605,6 +606,32 @@ res_outer_fun = lambda t1: FX_t1(t1) \
                            * res_inner(t1)
 
 
+# for wavepacket in resonance state
+import mpmath as mp
+def t_plus(t):
+    return 1/(sigma*mp.sqrt(2)) * (t - 1.j*sigma**2*(Er_au+E_lambda-1.j*mp.pi*W_au+Omega_au))
+def t_minus(t):
+    return 1/(sigma*mp.sqrt(2)) * (t - 1.j*sigma**2*(Er_au+E_lambda-1.j*mp.pi*W_au-Omega_au))
+
+def gamma_plus(T_up):
+    return ((Er_au+E_lambda-1.j*mp.pi*W_au) * (mp.erf(t_plus(T_up)) \
+                                               - mp.erf(t_plus(-TX_au/2))) \
+            + 1.j/sigma * mp.sqrt(2/mp.pi) * (mp.exp(-t_plus(T_up)**2) \
+                                              - mp.exp(-t_plus(-TX_au/2)**2)))
+def gamma_minus(T_up):
+    return ((Er_au+E_lambda-1.j*mp.pi*W_au) * (mp.erf(t_minus(T_up)) \
+                                               - mp.erf(t_minus(-TX_au/2))) \
+            + 1.j/sigma * mp.sqrt(2/mp.pi) * (mp.exp(-t_minus(T_up)**2) \
+                                              - mp.exp(-t_minus(-TX_au/2)**2)))
+
+def wp_res_int(t,T_up):
+    return (-A0X*0.25j * mp.exp(-1.j*t*(Er_au+E_lambda-1.j*mp.pi*W_au)) \
+            * (mp.exp(-sigma**2/2 * (Er_au+E_lambda-1.j*mp.pi*W_au+Omega_au)**2) \
+                * gamma_plus(T_up) \
+               + mp.exp(-sigma**2/2 * (Er_au+E_lambda-1.j*mp.pi*W_au-Omega_au)**2) \
+                * gamma_minus(T_up)))
+
+
 #-------------------------------------------------------------------------
 #-------------------------------------------------------------------------
 # initialization
@@ -627,6 +654,11 @@ prefac_dir1 = 1j * cdg_au_V
 
 if (fin_pot_type in ('hyperbel','hypfree')):
     n_fin_max = n_fin_max_X
+
+# for wavepacket in resonance state(s)
+wp_prefs = [(1.j/(n_res_max+1) * rdg_au * gs_res[0][nlambda] \
+               + mp.pi/(n_res_max+1) * VEr_au * cdg_au_V * indir_FCsums[nlambda])
+            for nlambda in range(n_res_max+1)]
 
 
 ########################################
@@ -731,6 +763,19 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
             print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
             outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
     
+    # wavepacket in resonance state(s)
+    wp_ampls = []
+    for nlambda in range (0,n_res_max+1):
+        E_lambda = E_lambdas[nlambda]
+        W_au = W_lambda[nlambda]
+        wp_I = wp_res_int(t_au,t_au)
+        wp_pref = wp_prefs[nlambda] 
+        wp_ampl = wp_pref * wp_I
+        wp_string = format(nlambda, 'd') + '   ' + format(sciconv.atu_to_second(t_au), ' .18f') \
+                + '   ' + format(complex(wp_ampl), ' .15e')
+        wp_ampls.append(wp_string)
+    in_out.doout_1f(wp_res_out, wp_ampls)
+
 
     t_au = t_au + timestep_au
 
@@ -840,6 +885,19 @@ while (t_au >= TX_au/2\
             print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
             outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
     
+    # wavepacket in resonance state(s)
+    wp_ampls = []
+    for nlambda in range (0,n_res_max+1):
+        E_lambda = E_lambdas[nlambda]
+        W_au = W_lambda[nlambda]
+        wp_I = wp_res_int(t_au,TX_au/2)
+        wp_pref = wp_prefs[nlambda] 
+        wp_ampl = wp_pref * wp_I
+        wp_string = format(nlambda, 'd') + '   ' + format(sciconv.atu_to_second(t_au), ' .18f') \
+                + '   ' + format(complex(wp_ampl), ' .15e')
+        wp_ampls.append(wp_string)
+    in_out.doout_1f(wp_res_out, wp_ampls)
+
 
     t_au = t_au + timestep_au
 
