@@ -15,6 +15,7 @@
 
 import argparse
 from datetime import datetime
+import dill
 import numpy as np
 import scipy
 import scipy.integrate as integrate
@@ -33,27 +34,6 @@ print(str(dt_start))
 # don't print warnings unless python -W ... is used
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
-
-# decide whether to use pickle or dill for deserializing a Gamma_of_R file
-def dill_compatible():
-    if sys.version_info < (3,8): # check Python version
-        return False
-    if sys.version_info < (3,8): # check setuptools version
-        from pkg_resources import get_distribution, DistributionNotFound as NoPackageError
-        setuptools_version = get_distribution("setuptools").version
-    else:
-        from importlib.metadata import version, PackageNotFoundError as NoPackageError
-        setuptools_version = version("setuptools")
-    try: 
-        if setuptools_version < "42.0.0":
-            return False
-    except NoPackageError:
-        return False # setuptools is not installed, so no dill
-    return True
-if dill_compatible():
-    import dill as deserializer
-else:
-    import pickle as deserializer
 
 # set up argument parser
 parser = argparse.ArgumentParser(
@@ -79,8 +59,7 @@ parser.add_argument('-f', '--fc', help='''Optional file with pre-calculated "Fra
                     all lines thereafter will be ignored, regardless of their first word.
                     The gs-res integrals shall not be present and will in every case be directly calulated.
                     +++ This option is incompatible with the -g/--gamma option.''')
-if dill_compatible():
-    parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
+parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
                     of the decay width Gamma on the internuclear distance R.
                     The information can be stored as a univariate function or an SciPy interpolator.
                     Permissible are, besides user-defined functions, all "np.foo" and "scipy.foo",
@@ -88,18 +67,6 @@ if dill_compatible():
                     "myfunc" defined as def myfunc(x): return np.polynomial.hermite.Hermite((2,0,8))(x);
                     "scipy.interpolate.PchipInterpolator(xarray,yarray)".
                     The file shall be binary and contain the functional dependence in a pickled form (preferably by dill).
-                    +++ This option is incompatible with the -f/--fc option.''')
-else:
-    parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
-                    of the decay width Gamma on the internuclear distance R.
-                    The information can be stored as a univariate function or an SciPy interpolator.
-                    Permissible are, besides user-defined functions, all "np.foo" and "scipy.foo",
-                    with full tree beginning at the module, e.g. "np.sqrt";
-                    "myfunc" defined as def myfunc(x): return np.polynomial.hermite.Hermite((2,0,8))(x);
-                    "scipy.interpolate.PchipInterpolator(xarray,yarray)".
-                    The file shall be binary and contain the functional dependence pickled preferably by pickle.
-                    Functions pickled by dill may cause problems, esp. lambda expressions.
-                    To enable deserializing of functions pickled by dill, use an updated python version.
                     +++ This option is incompatible with the -f/--fc option.''')
 args = parser.parse_args()
 
@@ -379,7 +346,7 @@ elif Gamma_type == 'R6':
     V_of_R = lambda R: R**(-3)
 elif not (args.gamma == None):
     with open(args.gamma, 'rb') as gammafile:
-        Gamma_of_R = deserializer.load(gammafile)
+        Gamma_of_R = dill.load(gammafile)
     V_of_R = lambda R: np.sqrt(Gamma_of_R(R) / (2*np.pi))
 else:                           # For 'external' but from FC file
     V_of_R = lambda R: 1
