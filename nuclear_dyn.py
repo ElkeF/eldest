@@ -239,7 +239,7 @@ for n in range (0,n_gs_max+1):
 
 #resonance state
 print()
-print("Resonant state")
+print("Resonance state")
 print('-----------------------------------------------------------------')
 print("Energies of vibrational states of the resonance state")
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
