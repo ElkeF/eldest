@@ -1,5 +1,5 @@
 # transitions dipole moments
-rdg_au        = 0.70             # transition dipole moment into the resonant state
+rdg_au        = 0.70             # transition dipole moment into the resonance state
 cdg_au        = 0.5              # transition dipole moment into any continuum state
 q             = 1
 # parameters of the investigated system
@@ -53,7 +53,7 @@ gs_de         = 0.0001102
 gs_a          = 1.5
 gs_Req        = 6.0
 gs_const      = 0.0
-# resonant state parameters
+# resonance state parameters
 res_de        = 0.0183747
 res_a         = 15.3994
 res_Req       = 6.0

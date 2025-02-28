@@ -1,5 +1,5 @@
 # transitions dipole moments
-rdg_au        = 0.70            # transition dipole moment into the resonant state
+rdg_au        = 0.70            # transition dipole moment into the resonance state
 cdg_au        = 0.5             # transition dipole moment into any continuum state
 q             = 10
 # parameters of the investigated system
@@ -7,10 +7,10 @@ q             = 10
 Er_a_eV       =  47.6930        # resonance energy RICD in eV
 Er_b_eV       =  48.4750        # resonance energy ICD in eV
 E_fin_eV      =  42.4138        # final state energy sRICD in eV
-tau_s         =  106E-15        # lifetime RICD resonant state via sRICD in s
+tau_s         =  106E-15        # lifetime RICD resonance state via sRICD in s
 E_fin_eV_2    =  47.8688        # final state energy ICD in eV
-tau_b_s       =  98.0E-15       # lifetime ICD resonant state in s
-tau_s_2       = 205.5E-15       # lifetime RICD resonant state via pRICD/AI in s
+tau_b_s       =  98.0E-15       # lifetime ICD resonance state in s
+tau_s_2       = 205.5E-15       # lifetime RICD resonance state via pRICD/AI in s
 #
 # laser parameters
 Omega_eV      = 47.6930         # mean photon energy of the XUV pulse in eV
