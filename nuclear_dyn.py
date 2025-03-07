@@ -356,32 +356,31 @@ else:                           # For 'external' but from FC file
 print()
 print('-----------------------------------------------------------------')
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-print('Numerical integration test')
-
-if fin_pot_type == 'morse':
-    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
-                      * wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de)
-                      * V_of_R(R))
-elif fin_pot_type == 'hypfree':
-    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
-                      * wf.psi_freehyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
-                      * V_of_R(R))
-elif fin_pot_type == 'hyperbel':
-    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
-                      * wf.psi_hyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
-                      * V_of_R(R))
-
-tmp = np.zeros(2)
-while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
-    R_min -= 0.01                                   # if so: lower the lower integration bound by 0.01 bohr
-    tmp = integrate.quad(func, R_min, R_max,epsabs=1e-14,limit=500)
-    #print(R_min, tmp)  #?
+#print('Numerical integration test')
+#
+#if fin_pot_type == 'morse':
+#    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+#                      * wf.psi_n(R,0,fin_a,fin_Req,red_mass,fin_de)
+#                      * V_of_R(R))
+#elif fin_pot_type == 'hypfree':
+#    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+#                      * wf.psi_freehyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
+#                      * V_of_R(R))
+#elif fin_pot_type == 'hyperbel':
+#    func = lambda R: (np.conj(wf.psi_n(R,0,res_a,res_Req,red_mass,res_de))
+#                      * wf.psi_hyp(R,fin_hyp_a,fin_hyp_b,red_mass,R_start_EX_max)
+#                      * V_of_R(R))
+#tmp = np.zeros(2)
+#while abs(tmp[0]) <= (1000*tmp[1]):                 # checks if the test integral is at least three orders of magnitude larger than the estimated error
+#    R_min -= 0.01                                   # if so: lower the lower integration bound by 0.01 bohr
+#    tmp = integrate.quad(func, R_min, R_max,epsabs=1e-20,limit=500)
+#    #print(R_min, tmp)  #?
+R_min -= 0.01       # Counteract the +0.01 bohr when R_min was defined
 
 print('Lower bound of integration over R for the Franck-Condon factors')
 print('R_min = {:14.10E} au = {:5.5f} A'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
 outfile.write('Lower bound of integration over R for the Franck-Condon factors' + '\n')
 outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
-
 
 # ground state - resonance state <lambda|kappa>
 print()
@@ -394,9 +393,8 @@ outfile.write('n_gs  ' + 'n_res  ' + '<res|gs>' + '\n')
 for i in range (0,n_gs_max+1):
     tmp = []
     for j in range (0,n_res_max+1):
-        FC = wf.FCmor_mor(j,res_a,res_Req,res_de,red_mass,
-                          i,gs_a,gs_Req,gs_de,R_min,R_max,
-                          epsabs=1e-14)
+        FC = wf.mp_FCmor_mor(j,res_a,res_Req,res_de,red_mass,
+                             i,gs_a,gs_Req,gs_de,R_min,R_max)
         tmp.append(FC)
         outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
         print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
@@ -406,14 +404,13 @@ for i in range (0,n_gs_max+1):
 if (fin_pot_type == 'morse'):
     for m in range(0,n_fin_max+1):
         for k in range(0,n_gs_max+1):
-            FC = wf.FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
-                              k,gs_a,gs_Req,gs_de,R_min,R_max,
-                              epsabs=1e-14)
+            FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                                 k,gs_a,gs_Req,gs_de,R_min,R_max)
             gs_fin[k].append(FC)
         for l in range(0,n_res_max+1):
-            FC = wf.FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
-                              l,res_a,res_Req,res_de,R_min,R_max,
-                              epsabs=1e-14,V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
+            FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                                 l,res_a,res_Req,res_de,R_min,R_max,
+                                 V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
             res_fin[l].append(FC)
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
@@ -426,7 +423,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             R_start = R_start + R_hyp_step
         norm_factor = 1.
     else:
-        FCfunc = wf.FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.FCmor_freehyp
+        FCfunc = wf.mp_FCmor_hyp if (fin_pot_type == 'hyperbel') else wf.mp_FCmor_freehyp
         Req_max = max(gs_Req, res_Req)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         thresh_flag = -1                # Initialize flag for FC-calc stop. Counts how often in a (mu) row all FC fall below threshold
@@ -437,15 +434,14 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
     #        outfile.write(f'R_start = {R_start:5.5f} au = {sciconv.bohr_to_angstrom(R_start):5.5f} A, E_mu = {E_mu:5.5f} au = {sciconv.hartree_to_ev(E_mu):5.5f} eV, steps: {int((R_start - R_start_EX_max) / R_hyp_step  + 0.1)}\n')  #?
             for k in range(0,n_gs_max+1):
                 FC = FCfunc(k,gs_a,gs_Req,gs_de,red_mass,
-                            fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
-                            epsabs=1e-14,limit=500)
+                            fin_hyp_a,fin_hyp_b,R_start,R_min,R_max)
                 gs_fin[k].insert(0,FC)
                 print(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'k = {k}, gs_fin  = {FC: 10.10E}, |gs_fin|  = {np.abs(FC):10.10E}\n')   #?
             for l in range(0,n_res_max+1):
                 FC = FCfunc(l,res_a,res_Req,res_de,red_mass,
                             fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
-                            epsabs=1e-14,limit=500,V_of_R=V_of_R)
+                            V_of_R=V_of_R)
                 res_fin[l].insert(0,FC)
                 print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?
