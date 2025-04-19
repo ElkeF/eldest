@@ -422,8 +422,10 @@ R_min -= 0.01       # Counteract the +0.01 bohr when R_min was defined
 
 print('Lower bound of integration over R for the Franck-Condon factors')
 print('R_min = {:14.10E} au = {:5.5f} A'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
+print('Hope that is in order.')
 outfile.write('Lower bound of integration over R for the Franck-Condon factors' + '\n')
 outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
+outfile.write('Hope that is in order.' + '\n')
 
 # ground state - resonance state <lambda|kappa>
 print()
@@ -475,6 +477,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
             if not (gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
                     and n_fin_max_X_woVR == n_fin_max_X and len(res_fin) == len(res_fin_woVR)):
+                outfile.write("gs_fin: " + str(gs_fin_woVR == gs_fin) + ", max_list: " + str(n_fin_max_list_woVR == n_fin_max_list) + ", max_X: " + str(n_fin_max_X_woVR == n_fin_max_X) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
                 outfile.close
                 pure_out.close
                 movie_out.close
@@ -626,9 +629,11 @@ if not (args.partial == None):
                 elif (m == 1):
                     print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
                     print('   ...')
-    if (fin_pot_type in ('hyperbel','hypfree')):
-        print("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero")
-        outfile.write("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero\n")
+    print('These additional overlaps without the V(R) dependence are used\n only in',
+            'the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+    outfile.write('These additional overlaps without the V(R) dependence are used\n only in '
+            + ('the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+            + '\n')
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
 indir_FCsums = []
