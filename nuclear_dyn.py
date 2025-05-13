@@ -16,7 +16,6 @@
 import scipy
 import scipy.integrate as integrate
 from scipy.signal import argrelextrema
-from scipy.special import erf
 import numpy as np
 import sciconv
 import complex_integration as ci
