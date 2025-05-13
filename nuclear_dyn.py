@@ -11,13 +11,15 @@
 ##########################################################################
 # written by: Elke Fasshauer November 2020                               #
 # extended by: Alexander Riegel July 2023 - December 2024                #
-# last change: 2025-04-19 AVR                                            #
+# last change: 2025-05-13 AVR                                            #
 ##########################################################################
 
 import argparse
 from datetime import datetime
 import dill
+import mpmath as mp
 import numpy as np
+from os import devnull
 import scipy
 import scipy.integrate as integrate
 from scipy.signal import argrelextrema
@@ -76,6 +78,11 @@ parser.add_argument('-p', '--partial', help='''If 'prefactor' or 'pre' is chosen
 parser.add_argument('-F', '--FC', help='''Same as '-f' and '--fc', but for an additional set with overlap integrals
                     without Gamma(R) dependence in the res-fin integrals. The file structure is the same as before.
                     +++ This option is only available in combination with the -p/--partial option.''')
+parser.add_argument('-w', '--wavepacket_only', action='store_true', help='''If this flag is given, only the projection
+                    onto the vibrational states of the electronic resonance state (needed to reconstruct
+                    the wavepacket in the resonance state) will be calculated, whereas the calculation of the projections
+                    onto the final state (needed for the spectrum) will be skipped. Also, progress will be written
+                    to eldest.out as usual, but existing full.dat and movie.dat files will not be altered.''')
 args = parser.parse_args()
 
 infile = args.infile
@@ -84,13 +91,16 @@ print(infile)
 #-------------------------------------------------------------------------
 # open outputfile
 outfile = open("eldest.out", mode='w')
-pure_out = open('full.dat', mode='w')
-movie_out = open('movie.dat', mode='w')
+pure_out = open('full.dat' if not args.wavepacket_only else devnull, mode='w')
+movie_out = open('movie.dat' if not args.wavepacket_only else devnull, mode='w')
 #popfile = open("pop.dat", mode='w')
 wp_res_out = open('wp_res.dat', mode='w')
 
 outfile.write(str(dt_start) + '\n')
 outfile.write("The results were obtained with nuclear_dyn.py \n")
+if args.wavepacket_only:
+    print("Only the resonance-state projections will be calculated, not the spectrum (final-state projections).")
+    outfile.write("Only the resonance-state projections will be calculated, not the spectrum (final-state projections)." + '\n')
 #-------------------------------------------------------------------------
 # set some defaults
 Xshape = 'convoluted'
@@ -764,7 +774,6 @@ res_outer_fun = lambda t1: FX_t1(t1) \
 
 
 # for wavepacket in resonance state
-import mpmath as mp
 def t_plus(t):
     return 1/(sigma*mp.sqrt(2)) * (t - 1.j*sigma**2*(Er_au+E_lambda-1.j*mp.pi*W_au+Omega_au))
 def t_minus(t):
@@ -842,105 +851,106 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    while (E_kin_au <= E_max_au):
-        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
-            print('|', end = '', flush = True)
-            cnt = 0
-        else:
-            print('-', end = '', flush = True)
-            cnt = cnt + 1
-        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
-        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
-        p_au = np.sqrt(2*E_kin_au)
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin); for continuous mu: int ~ sum
-        if t_au==-TX_au/2:
-            squares = np.append(squares, 0.)
-            string = in_out.prep_output(0., E_kin_au, t_au)
-            outlines.append(string)
-            E_kin_au = E_kin_au + E_step_au
-            continue
-
-        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
-    #            Er_au = Er_a_au
-            
-            # Direct term
-            if (integ_outer == "quadrature"):
-                I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), t_au)
-                dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-
-            elif (integ_outer == "romberg"):
-                I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), t_au)
-                dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
-             
-            # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
-            J = 0
-            for nlambda in range (0,n_res_max+1):
-                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
-                    continue
-                E_lambda = E_lambdas[nlambda]
-                W_au = W_lambda[nlambda]
-                if (integ_outer == "quadrature"):
-                    res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), t_au)
+    if not args.wavepacket_only: 
+        while (E_kin_au <= E_max_au):
+            if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+                print('|', end = '', flush = True)
+                cnt = 0
+            else:
+                print('-', end = '', flush = True)
+                cnt = cnt + 1
+            #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+            #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
+            p_au = np.sqrt(2*E_kin_au)
+            sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin); for continuous mu: int ~ sum
+            if t_au==-TX_au/2:
+                squares = np.append(squares, 0.)
+                string = in_out.prep_output(0., E_kin_au, t_au)
+                outlines.append(string)
+                E_kin_au = E_kin_au + E_step_au
+                continue
     
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-
-                elif (integ_outer == "romberg"):
-                    res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), t_au)
+            for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+                E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+        #            Er_au = Er_a_au
                 
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+                # Direct term
+                if (integ_outer == "quadrature"):
+                    I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), t_au)
+                    dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
     
-                J = (J
-                     + res_J1
-                     + indir_J1
-                     )
-    
-            # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
-            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
-            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
-            square = np.absolute(J + dir_J1)**2     # |J_mu|**2
-            if (fin_pot_type in ('hyperbel','hypfree')):
-                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
-                old_square = square
-                square = square * factor
-            sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
-            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
-            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
-
-        squares = np.append(squares, sum_square)
-
-        string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
-        outlines.append(string)
+                elif (integ_outer == "romberg"):
+                    I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), t_au)
+                    dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
+                 
+                # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
+                J = 0
+                for nlambda in range (0,n_res_max+1):
+                    if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+                        continue
+                    E_lambda = E_lambdas[nlambda]
+                    W_au = W_lambda[nlambda]
+                    if (integ_outer == "quadrature"):
+                        res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), t_au)
         
-        E_kin_au = E_kin_au + E_step_au     # @ t = const.
+                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
     
+                    elif (integ_outer == "romberg"):
+                        res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), t_au)
+                    
+                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+        
+                    J = (J
+                         + res_J1
+                         + indir_J1
+                         )
+        
+                # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+                # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+                #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
+                square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+                if (fin_pot_type in ('hyperbel','hypfree')):
+                    factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                    old_square = square
+                    square = square * factor
+                sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+                #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+                #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
     
-    in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
-    in_out.doout_movie(movie_out, outlines)
-    print()
-    max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
-    if (len(max_pos > 0)):                               # if there are such:
-        for i in range (0, len(max_pos)):
-            print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
-            outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+            squares = np.append(squares, sum_square)
+    
+            string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
+            outlines.append(string)
+            
+            E_kin_au = E_kin_au + E_step_au     # @ t = const.
+        
+        
+        in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
+        in_out.doout_movie(movie_out, outlines)
+        print()
+        max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
+        if (len(max_pos > 0)):                               # if there are such:
+            for i in range (0, len(max_pos)):
+                print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
+                outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
     
     # wavepacket in resonance state(s)
     wp_ampls = []
@@ -979,104 +989,105 @@ while (t_au >= TX_au/2\
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    while (E_kin_au <= E_max_au):
-        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
-            print('|', end = '', flush = True)
-            cnt = 0
-        else:
-            print('-', end = '', flush = True)
-            cnt = cnt + 1
-        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
-        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
-        p_au = np.sqrt(2*E_kin_au)
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin)
-
-        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
-    #            Er_au = Er_a_au
-            
-            # Direct term
-            if (integ_outer == "quadrature"):
-                I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), TX_au/2)
-                dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-#                    print(nmu, gs_fin[0][nmu], dir_J1)   #?
+    if not args.wavepacket_only: 
+        while (E_kin_au <= E_max_au):
+            if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+                print('|', end = '', flush = True)
+                cnt = 0
+            else:
+                print('-', end = '', flush = True)
+                cnt = cnt + 1
+            #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+            #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
+            p_au = np.sqrt(2*E_kin_au)
+            sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin)
     
-            elif (integ_outer == "romberg"):
-                I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), TX_au/2)
-                dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
-
-            # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
-            J = 0
-            for nlambda in range (0,n_res_max+1):
-                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
-#                    print(nmu, nlambda, 'skipped')  #?
-                    continue
-                E_lambda = E_lambdas[nlambda]
-                W_au = W_lambda[nlambda]
+            for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+                E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+        #            Er_au = Er_a_au
+                
+                # Direct term
                 if (integ_outer == "quadrature"):
-                    res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
-                    
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-#                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
-                    else:
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-#                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
-    
-                elif (integ_outer == "romberg"):
-                    res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
-                    
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-
-
-                J = (J
-                     + res_J1
-                     + indir_J1
-                     )
-    
-            # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
-            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
-            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
-            square = np.absolute(J + dir_J1)**2     # |J_mu|**2
-            if (fin_pot_type in ('hyperbel','hypfree')):
-                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
-                old_square = square
-                square = square * factor
-            sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
-            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
-            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
-
-        squares = np.append(squares, sum_square)
-
-        string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
-        outlines.append(string)
+                    I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), TX_au/2)
+                    dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
+    #                    print(nmu, gs_fin[0][nmu], dir_J1)   #?
         
-        E_kin_au = E_kin_au + E_step_au     # @ t = const.
+                elif (integ_outer == "romberg"):
+                    I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), TX_au/2)
+                    dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
+    
+                # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
+                J = 0
+                for nlambda in range (0,n_res_max+1):
+                    if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+    #                    print(nmu, nlambda, 'skipped')  #?
+                        continue
+                    E_lambda = E_lambdas[nlambda]
+                    W_au = W_lambda[nlambda]
+                    if (integ_outer == "quadrature"):
+                        res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
+                        
+                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+    #                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
+                        else:
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+    #                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
+        
+                    elif (integ_outer == "romberg"):
+                        res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
+                        
+                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
     
     
-    in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
-    in_out.doout_movie(movie_out, outlines)
-    print()
-    max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
-    if (len(max_pos > 0)):                               # if there are such:
-        for i in range (0, len(max_pos)):
-            print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
-            outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+                    J = (J
+                         + res_J1
+                         + indir_J1
+                         )
+        
+                # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+                # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+                #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
+                square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+                if (fin_pot_type in ('hyperbel','hypfree')):
+                    factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                    old_square = square
+                    square = square * factor
+                sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+                #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+                #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
+    
+            squares = np.append(squares, sum_square)
+    
+            string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
+            outlines.append(string)
+            
+            E_kin_au = E_kin_au + E_step_au     # @ t = const.
+        
+        
+        in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
+        in_out.doout_movie(movie_out, outlines)
+        print()
+        max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
+        if (len(max_pos > 0)):                               # if there are such:
+            for i in range (0, len(max_pos)):
+                print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
+                outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
     
     # wavepacket in resonance state(s)
     wp_ampls = []
