@@ -1,0 +1,149 @@
+#!/usr/bin/python3
+# This script takes the projections of the wavefunction on the vibronic resonance states as input
+# and yields the expanded wavefunctions as a function of R and t in these levels
+# as well as the combined wavepacket in the resonance state as output.
+# Alexander Riegel, 2024.
+
+import argparse
+from contextlib import contextmanager
+import numpy as np
+import pandas as pd
+import os
+from pathlib import Path
+from pygnuplot import gnuplot
+import subprocess
+import sys
+sys.path.append('/mnt/home/alexander/eldest')
+import warnings
+warnings.filterwarnings(action='ignore', category=np.ComplexWarning)
+
+import in_out
+import wellenfkt as wf
+
+@contextmanager
+def silence_print():
+    with open(os.devnull, 'w') as dummyout:
+        old_stdout = sys.stdout
+        sys.stdout = dummyout
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+
+# set up argument parser
+parser = argparse.ArgumentParser(
+        description='''This script calculates the wavepacket in the resonance state
+        from the projections onto the vibronic resonance states
+        that are the output of res_nuclear_dyn.py (in wp_res.dat).''',
+        epilog='Alexander V. Riegel, 2024.')
+parser.add_argument('-w', '--wavepacket_infile', default='wp_res.dat',
+                    help='File which contains the projections of the wavefunction on the vibronic resonance states.')
+parser.add_argument('-s', '--settings_infile', default='photonucl.in',
+                    help='File which includes the simulation settings, potential parameters etc.')
+args = parser.parse_args()
+
+
+# read in potentials and set infile/outfile
+infile = args.wavepacket_infile
+settings = args.settings_infile
+
+if Path(infile).is_file():
+    print('Input file for resonance-state projections:', infile)
+else:
+    sys.exit('Input file for resonance-state projections "%s" does not exist.' % infile)
+
+if Path(settings).is_file():
+    print('Input file for simulation and potential settings:', settings)
+else:
+    sys.exit('Input file for simulation and potential settings "%s" does not exist.' % settings)
+
+with open(os.devnull, 'w') as dummyfile, silence_print():
+    (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _,
+     _, _, _, _, _, _, _, _, mass1, mass2, _, _, _, _, _, _, De, alpha, Req, _, _, _, _, _, _
+     ) = in_out.read_input(settings, dummyfile)
+
+outfile=f'wf_{infile}'
+
+
+##########
+
+with open(infile,'r') as f:
+    data = pd.read_csv(f, header=None, sep='   ', engine='python')
+
+# Prepare array with R values
+R_len = 81
+R_arr = np.linspace(2.,10.,R_len)
+
+# Morse potential
+red_mass = wf.red_mass_au(mass1,mass2)
+lambda_param_res = np.sqrt(2*red_mass*De) / alpha
+N_lambda = int(lambda_param_res - 0.5) + 1
+
+# Sort input by time and quantum number, repeat each line R_len times (each t and lambda evaluated at each R)
+data[2] = data[2].astype(complex)
+sata = data.sort_values([0,1]).reset_index(drop=True).loc[data.index.repeat(R_len)]
+sata[3] = np.tile(R_arr, len(data[0]))
+
+# At each point, multiply the WF of the vibrational state with the projection of the total WF on it
+sata[4] = complex(0)
+for n in range(N_lambda):
+    s_down, s_up = n*len(data[0])//N_lambda, (n+1)*len(data[0])//N_lambda-1     # select block with the current quantum number n
+    sata.loc[s_down:s_up,4] = sata.loc[s_down:s_up,2] * wf.psi_n(sata.loc[s_down:s_up,3], int(data[0][n]), alpha, Req, red_mass, De)
+
+# Prepare an additional block for the whole resonance wavepacket, indicate by quantum number -1
+fata = pd.concat((sata, sata[sata[0] == 0].set_index(sata[sata[0] == 0].index + sata.index[-1] + 1)))
+fata.loc[len(data[0]):,0] = -1
+
+# Add up the contributions at each R,t point to the whole resonance wavepacket at this point
+aata = np.array(fata[[3,1,0,4]])
+with np.nditer(np.arange(len(sata[0])//N_lambda)) as it:
+    for x in it:
+      aata[N_lambda*len(sata[0])//N_lambda + x][3] = sum(aata[n*len(sata[0])//N_lambda + x][3] for n in range(N_lambda))
+
+# Write out the array
+pata = np.array((abs(aata[:,3])**2,)).T
+oata = np.hstack((aata[:,:3].astype(float), pata))
+np.savetxt(outfile, oata, delimiter='   ', fmt=['%10.7f', '% .7e', '% i', '% .15e'])
+
+
+##########
+
+# Extract the total resonance-state wavepacket and restructure the file for pm3d
+outfile_pm3d=f'pm3d_{outfile}'
+eata = oata[-len(sata[0])//N_lambda:]
+np.savetxt(outfile_pm3d, eata, delimiter='   ', fmt=['%10.7f', '% .7e', '% i', '% .15e'])
+subprocess.call(['sed', '-i', '/10.0000000/G', outfile_pm3d])
+
+# Plot to eps
+g = gnuplot.Gnuplot()
+g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' lw 4",
+      output = "'gp_outfile.eps'",
+      bmargin = "0.5",
+      lmargin = "5.0",
+      rmargin = "-5.0",
+      cbtics = "font ',20'",
+      xlabel = "'R (a.u.)'",
+      ylabel = "'t (s)'",
+      zlabel = "'P (a.u.)'",
+      xrange = "[5.8:6.8]",
+      yrange = "[-1.2e-15:1.e-13]",
+      key = None,
+      view = "map",
+      size = "ratio 0.5 0.8,1")
+g.splot(f"'{outfile_pm3d}' u 1:2:4 w pm3d")
+
+# Convert to pdf, crop pdf and clean up
+subprocess.run([
+    'gs',
+    '-q',
+    '-P-',
+    '-dBATCH',
+    '-dNOPAUSE',
+    '-sDEVICE=pdfwrite',
+    '-sOutputFile=gp_uncropped.pdf',
+    'gp_outfile.eps'
+], check=True)
+with open(os.devnull, 'w') as dummyout:
+    subprocess.call(['pdfcrop', 'gp_uncropped.pdf', 'wavefunction_res_combined.pdf'], stdout=dummyout)
+os.remove('gp_outfile.eps')
+os.remove('gp_uncropped.pdf')
