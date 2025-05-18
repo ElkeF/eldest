@@ -2,7 +2,7 @@
 # This script takes the projections of the wavefunction on the vibronic resonance states as input
 # and yields the expanded wavefunctions as a function of R and t in these levels
 # as well as the combined wavepacket in the resonance state as output.
-# Alexander Riegel, 2024.
+# Alexander Riegel, 2024/2025.
 
 import argparse
 from contextlib import contextmanager
@@ -11,6 +11,7 @@ import pandas as pd
 import os
 from pathlib import Path
 from pygnuplot import gnuplot
+from scipy.integrate import romb, simpson, trapezoid
 import subprocess
 import sys
 sys.path.append('/mnt/home/alexander/eldest')
@@ -29,6 +30,14 @@ def silence_print():
             yield
         finally:
             sys.stdout = old_stdout
+
+#######################################
+# Prepare array with R values
+R_low = 5.8
+R_hig = 6.8
+R_len = 2**7 + 1
+R_arr = np.linspace(R_low,R_hig,R_len)
+#######################################
 
 # set up argument parser
 parser = argparse.ArgumentParser(
@@ -70,10 +79,6 @@ outfile=f'wf_{infile}'
 with open(infile,'r') as f:
     data = pd.read_csv(f, header=None, sep='   ', engine='python')
 
-# Prepare array with R values
-R_len = 81
-R_arr = np.linspace(2.,10.,R_len)
-
 # Morse potential
 red_mass = wf.red_mass_au(mass1,mass2)
 lambda_param_res = np.sqrt(2*red_mass*De) / alpha
@@ -81,7 +86,8 @@ N_lambda = int(lambda_param_res - 0.5) + 1
 
 # Sort input by time and quantum number, repeat each line R_len times (each t and lambda evaluated at each R)
 data[2] = data[2].astype(complex)
-sata = data.sort_values([0,1]).reset_index(drop=True).loc[data.index.repeat(R_len)]
+mata = data.sort_values([0,1]).reset_index(drop=True)
+sata = mata.loc[data.index.repeat(R_len)]
 sata[3] = np.tile(R_arr, len(data[0]))
 
 # At each point, multiply the WF of the vibrational state with the projection of the total WF on it
@@ -108,11 +114,26 @@ np.savetxt(outfile, oata, delimiter='   ', fmt=['%10.7f', '% .7e', '% i', '% .15
 
 ##########
 
-# Extract the total resonance-state wavepacket and restructure the file for pm3d
+# Extract the total resonance-state wavepacket, restructure the file for pm3d and calc population & R expectation value
 outfile_pm3d=f'pm3d_{outfile}'
 eata = oata[-len(sata[0])//N_lambda:]
 np.savetxt(outfile_pm3d, eata, delimiter='   ', fmt=['%10.7f', '% .7e', '% i', '% .15e'])
-subprocess.call(['sed', '-i', '/10.0000000/G', outfile_pm3d])
+subprocess.call(['sed', '-i', f'/{R_hig:10.7f}/G', outfile_pm3d])
+
+popfile=f'pop_{infile}'
+pop = pd.DataFrame() 
+for t in range(len(eata)//len(R_arr)):
+    pop.loc[t, 0] = mata[1][t]
+    pop.loc[t, 1] = simpson(eata[t*len(R_arr):(t+1)*len(R_arr)][:,3]**2,dx=R_arr[1]-R_arr[0])
+np.savetxt(popfile, pop, delimiter='   ', fmt=['% .7e', '% .15e'])
+
+expectfile=f'expect-R_{infile}'
+expect = pd.DataFrame()
+for t in range(len(eata)//len(R_arr)):
+    expect.loc[t, 0] = mata[1][t]
+    expect.loc[t, 1] = simpson(eata[t*len(R_arr):(t+1)*len(R_arr)][:,0]*eata[t*len(R_arr):(t+1)*len(R_arr)][:,3]**2,dx=R_arr[1]-R_arr[0])/pop[1][t]
+np.savetxt(expectfile, expect, delimiter='   ', fmt=['% .7e', '% .15e'])
+
 
 # Plot to eps
 g = gnuplot.Gnuplot()
@@ -125,6 +146,7 @@ g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' l
       xlabel = "'R (a.u.)'",
       ylabel = "'t (s)'",
       zlabel = "'P (a.u.)'",
+#      xrange = f"[{R_low}:{R_hig}]",
       xrange = "[5.8:6.8]",
       yrange = "[-1.2e-15:1.e-13]",
       key = None,
@@ -133,17 +155,18 @@ g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' l
 g.splot(f"'{outfile_pm3d}' u 1:2:4 w pm3d")
 
 # Convert to pdf, crop pdf and clean up
-subprocess.run([
+subprocess.check_call([
     'gs',
-    '-q',
-    '-P-',
-    '-dBATCH',
-    '-dNOPAUSE',
-    '-sDEVICE=pdfwrite',
-    '-sOutputFile=gp_uncropped.pdf',
-    'gp_outfile.eps'
-], check=True)
+    '-q',   # quiet
+    '-P-',  # don't look first in current dir for lib files
+    '-dBATCH',      # exit gs after processing
+    '-dNOPAUSE',    # no prompt, no pause at end of pages
+    '-dEPSCrop',    # crop to EPS bounding box
+    '-sDEVICE=pdfwrite',        # select output device
+    '-sOutputFile=gp_uncropped.pdf',    # select output file
+    'gp_outfile.eps'            # input file
+])
 with open(os.devnull, 'w') as dummyout:
     subprocess.call(['pdfcrop', 'gp_uncropped.pdf', 'wavefunction_res_combined.pdf'], stdout=dummyout)
-os.remove('gp_outfile.eps')
-os.remove('gp_uncropped.pdf')
+#os.remove('gp_outfile.eps')
+#os.remove('gp_uncropped.pdf')
