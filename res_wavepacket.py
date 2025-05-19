@@ -129,7 +129,9 @@ np.savetxt(popfile, pop, delimiter='   ', fmt=['% .7e', '% .15e'])
 
 expectfile=f'expect-R_{infile}'
 expect = pd.DataFrame()
-for t in range(len(eata)//len(R_arr)):
+expect.loc[0, 0] = mata[1][0]
+expect.loc[0, 1] = 0.
+for t in range(1,len(eata)//len(R_arr)):
     expect.loc[t, 0] = mata[1][t]
     expect.loc[t, 1] = simpson(eata[t*len(R_arr):(t+1)*len(R_arr)][:,0]*eata[t*len(R_arr):(t+1)*len(R_arr)][:,3]**2,dx=R_arr[1]-R_arr[0])/pop[1][t]
 np.savetxt(expectfile, expect, delimiter='   ', fmt=['% .7e', '% .15e'])
@@ -159,14 +161,14 @@ subprocess.check_call([
     'gs',
     '-q',   # quiet
     '-P-',  # don't look first in current dir for lib files
+    '-sDEVICE=pdfwrite',        # select output device
+    '-dEPSCrop',    # crop to EPS bounding box
+    '-sOutputFile=gp_uncropped.pdf',    # select output file
     '-dBATCH',      # exit gs after processing
     '-dNOPAUSE',    # no prompt, no pause at end of pages
-    '-dEPSCrop',    # crop to EPS bounding box
-    '-sDEVICE=pdfwrite',        # select output device
-    '-sOutputFile=gp_uncropped.pdf',    # select output file
     'gp_outfile.eps'            # input file
 ])
 with open(os.devnull, 'w') as dummyout:
     subprocess.call(['pdfcrop', 'gp_uncropped.pdf', 'wavefunction_res_combined.pdf'], stdout=dummyout)
-#os.remove('gp_outfile.eps')
-#os.remove('gp_uncropped.pdf')
+os.remove('gp_outfile.eps')
+os.remove('gp_uncropped.pdf')
