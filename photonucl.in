@@ -42,29 +42,34 @@ integ         = analytic         # options: analytic, (quadrature, romberg - bot
 integ_outer   = quadrature       # options: quadrature, romberg
 Gamma_type    = R6               # options: const, R6, external
 #
+fc_precalc    = False            # use file with pre-calculated "Franck-Condon overlap integrals" for gs-fin and res-fin, flag -f
+partial_GamR  = None             # options: None, pre, exp (i. e. use Gamma-of-R dependence everywhere / only in prefactors / only in Wl)
+part_fc_pre   = False            # use file with pre-calculated FC overlap integrals without Gamma-of-R dependence, flag -F
+wavepac_only  = False            # calculate only the resonance-state projections, skip final-state projections'
+#
 # parameters for the nuclear dynamics
 mass1         = 20.1797          # in g/mol
 mass2         = 20.1797          # in g/mol
 grad_delta    = 0.001
 R_eq_AA       = 3.08
 # vibrational states parameters  # provide everything in au (de in Hartree, a in inverse Bohr, Req in Bohr)
-# ground state parameters
+# ground-state parameters
 gs_de         = 0.0001102
 gs_a          = 1.5
 gs_Req        = 6.0
 gs_const      = 0.0
-# resonance state parameters
+# resonance-state parameters
 res_de        = 0.0183747
 res_a         = 15.3994
 res_Req       = 6.0
 res_const     = 0.0
-# final state parameters
+# final-state parameters
 fin_a         = 0.0833354        # for morse: fin_de; for hyperbel or hypfree: V_a in au (Hartree * Bohr)
 fin_b         = 1.4699729        # for morse: fin_a; for hyperbel or hypfree: V_b in au (Hartree)
 fin_c         = 0.01890          # for morse: fin_Req; for hyperbel or hypfree: step width for R_start for vibrational energies (fin_a/R_start) in au (Bohr)
 fin_d         = 1.E-05           # for morse: fin_const; for hyperbel or hypfree: FC factor threshold for calculating the trs integral
 fin_pot_type  = hyperbel         # options: morse, hyperbel, hypfree
-## final state parameters
+## final-state parameters
 #fin_a         = 0.003675
 #fin_b         = 21.7512
 #fin_c         = 6.0

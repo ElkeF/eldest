@@ -11,13 +11,15 @@
 ##########################################################################
 # written by: Elke Fasshauer November 2020                               #
 # extended by: Alexander Riegel July 2023 - December 2024                #
-# last change: 2025-04-19 AVR                                            #
+# last change: 2025-06-10 AVR                                            #
 ##########################################################################
 
 import argparse
 from datetime import datetime
 import dill
+import mpmath as mp
 import numpy as np
+from os import devnull
 import scipy
 import scipy.integrate as integrate
 from scipy.signal import argrelextrema
@@ -30,7 +32,9 @@ import sciconv
 import wellenfkt as wf
 
 dt_start = datetime.now()
-print(str(dt_start))
+
+# set logging outfile
+outfile = open("eldest.out", mode='w')
 
 # don't print warnings unless python -W ... is used
 if not sys.warnoptions:
@@ -69,27 +73,29 @@ parser.add_argument('-g', '--gamma', help='''Optional binary file containing the
                     "scipy.interpolate.PchipInterpolator(xarray,yarray)".
                     The file shall be binary and contain the functional dependence in a pickled form (preferably by dill).
                     +++ This option is incompatible with the -f/--fc option.''')
-parser.add_argument('-p', '--partial', help='''If 'prefactor' or 'pre' is chosen, then the Gamma(R) dependence is incorporated
-                    only into the overlap integrals in the prefactors for the transition amplitude
-                    but not in W_lambda in the exponents. If 'exponent' or 'exp' or 'Wl' is chosen, the reverse is true.
-                    If none is given, the Gamma(R) dependence is incorporated in all relevant places (default).''')
+#parser.add_argument('-p', '--partial', help='''If 'prefactor' or 'pre' is chosen, then the Gamma(R) dependence is incorporated
+#                    only into the overlap integrals in the prefactors for the transition amplitude
+#                    but not in W_lambda in the exponents. If 'exponent' or 'exp' or 'Wl' is chosen, the reverse is true.
+#                    If none is given, the Gamma(R) dependence is incorporated in all relevant places (default).''')
 parser.add_argument('-F', '--FC', help='''Same as '-f' and '--fc', but for an additional set with overlap integrals
                     without Gamma(R) dependence in the res-fin integrals. The file structure is the same as before.
-                    +++ This option is only available in combination with the -p/--partial option.''')
+                    +++ This option is only available if partial_GamR is not None.''')
+#                    +++ This option is only available in combination with the -p/--partial option.''')
+#parser.add_argument('-w', '--wavepacket_only', action='store_true', help='''If this flag is given, only the projection
+#                    onto the vibrational states of the electronic resonance state (needed to reconstruct
+#                    the wavepacket in the resonance state) will be calculated, whereas the calculation of the projections
+#                    onto the final state (needed for the spectrum) will be skipped. Also, progress will be written
+#                    to eldest.out as usual, but existing full.dat and movie.dat files will not be altered.''')
 args = parser.parse_args()
+
+print(str(dt_start))
+outfile.write(str(dt_start) + '\n')
+outfile.write('Tempora mutantur, nos et mutamur in illis.')
+outfile.write("The results were obtained with nuclear_dyn.py \n")
 
 infile = args.infile
 print(infile)
 
-#-------------------------------------------------------------------------
-# open outputfile
-outfile = open("eldest.out", mode='w')
-pure_out = open('full.dat', mode='w')
-movie_out = open('movie.dat', mode='w')
-#popfile = open("pop.dat", mode='w')
-
-outfile.write(str(dt_start) + '\n')
-outfile.write("The results were obtained with nuclear_dyn.py \n")
 #-------------------------------------------------------------------------
 # set some defaults
 Xshape = 'convoluted'
@@ -118,11 +124,44 @@ Xshape = 'convoluted'
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
  integ, integ_outer, Gamma_type,
+ fc_precalc, partial_GamR, part_fc_pre, wavepac_only,
  mass1, mass2, grad_delta, R_eq_AA,
  gs_de, gs_a, gs_Req, gs_const,
  res_de, res_a, res_Req, res_const,
  fin_a, fin_b, fin_c, fin_d, fin_pot_type
  ) = in_out.read_input(infile, outfile)
+
+
+#-------------------------------------------------------------------------
+# open further outputfiles
+pure_out = open('full.dat' if not wavepac_only else devnull, mode='w')
+movie_out = open('movie.dat' if not wavepac_only else devnull, mode='w')
+#popfile = open("pop.dat", mode='w')
+wp_res_out = open('wp_res.dat', mode='w')
+
+if fc_precalc:
+    print('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc))
+    outfile.write('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc) + '\n')
+else:
+    print('All Franck-Condon overlap integrals are calculated from scratch')
+    outfile.write('All Franck-Condon overlap integrals are calculated from scratch\n')
+
+if partial_GamR:
+    if part_fc_pre:
+        print('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC))
+        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC) + '\n')
+    else:
+        print('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch')
+        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch\n')
+
+if wavepac_only:
+    print('Only the resonance-state projections will be calculated, not the spectrum (final-state projections)')
+    outfile.write('Only the resonance-state projections will be calculated, not the spectrum (final-state projections)' + '\n')
+
+if args.gamma:
+    print('Gamma(R) dependence is read from file ' + str(args.gamma))
+    outfile.write('Gamma(R) dependence is read from file ' + str(args.gamma) + '\n')
+
 
 #-------------------------------------------------------------------------
 # Convert input parameters to atomic units
@@ -210,7 +249,7 @@ if Gamma_type == 'const':
     print('VEr_au = ', VEr_au)
     outfile.write('VEr_au = ' + str(VEr_au) + '\n')
 elif Gamma_type == 'R6':
-    if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+    if partial_GamR:
         VEr_au_woVR = VEr_au
         print('VEr_au = ', VEr_au)
         outfile.write('VEr_au = ' + str(VEr_au) + '\n')
@@ -218,7 +257,7 @@ elif Gamma_type == 'R6':
     print('VEr_au_adjusted = ', VEr_au)
     outfile.write('VEr_au_adjusted = ' + str(VEr_au) + '\n')
 elif Gamma_type == 'external':
-    if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+    if partial_GamR:
         VEr_au_woVR = VEr_au
         print('VEr_au = ', VEr_au)
         outfile.write('VEr_au = ' + str(VEr_au) + '\n')
@@ -335,65 +374,84 @@ for k in range(0,n_gs_max+1):   # prepare the above (empty) sub-lists
 for l in range(0,n_res_max+1):
     res_fin.append(list())
 
-if not (Gamma_type == 'external') and not (args.gamma == None):
+if not fc_precalc and args.fc:
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file was provided without being requested. Programme terminated.')
+elif fc_precalc and not args.fc:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file was requested but not provided. Programme terminated.')
+elif not (Gamma_type == 'external') and args.gamma:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
     sys.exit('!!! Gamma-R-dependence file was provided although Gamma_type is not "external". Programme terminated.')
-elif (Gamma_type == 'external') and (args.fc == None) and (args.gamma == None):
+elif (Gamma_type == 'external') and not args.fc and not args.gamma:
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
     sys.exit('!!! Gamma_type is "external" but no additional input file was provided. Programme terminated.')
-elif not (args.fc == None) and not (args.gamma == None):
+elif args.fc and args.gamma:
     outfile.close
     pure_out.close
     movie_out.close
-    sys.exit('!!! Two additional input files were provided. Programme terminated.')
-elif (fin_pot_type == 'morse') and not (args.fc == None):
+    wp_res_out.close
+    sys.exit('!!! FC input file and Gamma-R-dependence file were provided at the same time. Programme terminated.')
+elif (fin_pot_type == 'morse') and (args.fc or args.FC):
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
     sys.exit('!!! FC input is not supported for Morse-potential final states. Programme terminated.')
+elif not part_fc_pre and args.FC:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was provided without being requested. Programme terminated.')
+elif part_fc_pre and not args.FC:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was requested but not provided. Programme terminated.')
+elif part_fc_pre and not partial_GamR:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was requested although no such treatment was requested. Programme terminated.')
+elif partial_GamR and ((args.fc and not args.FC) or (args.FC and not args.fc)):   # If partial_GamR but -f and -F not either both present or both absent, throw error (FC calc code would have to be changed)  
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! If partial_GamR is requested, then either both or none of the additional FC input files with (-f) and without (-F) Gamma-R dependence must be provided at the moment. Programme terminated.')
+
 
 if Gamma_type == 'const':
     V_of_R = lambda R: 1
-    args.partial = None     # If Gamma(R)=const., then FC integrals with and without Gamma(R) are identical
+    partial_GamR = None     # If Gamma(R)=const., then FC integrals with and without Gamma(R) are identical
 elif Gamma_type == 'R6':
     V_of_R = lambda R: R**(-3)
-elif not (args.gamma == None):
+elif args.gamma:
     with open(args.gamma, 'rb') as gammafile:
         Gamma_of_R = dill.load(gammafile)
     V_of_R = lambda R: np.sqrt(Gamma_of_R(R) / (2*np.pi))
 else:                           # For 'external' but from FC file
     V_of_R = lambda R: 1
 
-if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+if partial_GamR:
     res_fin_woVR = []
     for l in range(0,n_res_max+1):
         res_fin_woVR.append(list())
-    if not (args.fc == None) and (args.FC == None):     # If -f and -p but not -F, throw error (FC calc code would have to be changed)
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! Combination of -f and -p requires -F at the moment. Programme terminated.')
-    if not (args.FC == None) and (args.fc == None):     # If -F and -p but not -f, throw error (FC calc code would have to be changed)
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! Combination of -F and -p requires -f at the moment. Programme terminated.')
-elif not (args.partial == None):
-    outfile.close
-    pure_out.close
-    movie_out.close
-    sys.exit('!!! Requested use of overlap integrals with and without Gamma-of-R dependence unknown. Programme terminated.')
-else:
-    args.partial = None     # Just to be safe, should be so anyway at this point.
-    if not (args.FC == None):
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! FC input without Gamma-of-R dependence was provided without -p/--partial option. Programme terminated.')
 
 
 # Numerical integration failsafe check: calculate test FC overlap integral
@@ -458,7 +516,7 @@ if (fin_pot_type == 'morse'):
                                  l,res_a,res_Req,res_de,R_min,R_max,
                                  V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
             res_fin[l].append(FC)
-            if not (args.partial == None):
+            if partial_GamR:
                 FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
                                      l,res_a,res_Req,res_de,R_min,R_max,
                                      V_of_R=lambda R: 1)
@@ -466,7 +524,7 @@ if (fin_pot_type == 'morse'):
 
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
-    if not (args.fc == None):            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
+    if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
         gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         for m in range(0,n_fin_max_X+1):
@@ -474,7 +532,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             E_mus.insert(0,E_mu)        # Present loop starts at high energies, but these shall get high mu numbers = stand at the end of the lists -> fill lists from right to left
             R_start = R_start + R_hyp_step
         norm_factor = 1.
-        if not (args.partial == None):
+        if partial_GamR:
             gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
             if not (gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
                     and n_fin_max_X_woVR == n_fin_max_X and len(res_fin) == len(res_fin_woVR)):
@@ -482,6 +540,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
                 outfile.close
                 pure_out.close
                 movie_out.close
+                wp_res_out.close
                 sys.exit('!!! Files of FC integrals with and without Gamma(R) dependence are incompatible. Programme terminated.')
 
     else:
@@ -507,7 +566,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
                 res_fin[l].insert(0,FC)
                 print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?
-                if not (args.partial == None):
+                if partial_GamR:
                     FC = FCfunc(l,res_a,res_Req,res_de,red_mass,
                                 fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
                                 V_of_R=lambda R: 1)
@@ -607,7 +666,7 @@ if (fin_pot_type in ('hyperbel','hypfree')):
     print("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero")
     outfile.write("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero\n")
 
-if not (args.partial == None):
+if partial_GamR:
     print()
     print('-----------------------------------------------------------------')
     print("Franck-Condon overlaps between final & resonance state - no V(R)")
@@ -631,9 +690,9 @@ if not (args.partial == None):
                     print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
                     print('   ...')
     print('These additional overlaps without the V(R) dependence are used\n only in',
-            'the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+            'the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
     outfile.write('These additional overlaps without the V(R) dependence are used\n only in '
-            + ('the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+            + ('the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
             + '\n')
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
@@ -646,7 +705,7 @@ for l in range (0,n_res_max+1):
     for m in range (0, n_fin_max + 1):
         if (fin_pot_type in ('hyperbel','hypfree')):            # R-DOS for 'integration' over R_mu instead of [E_]mu
             factor = R_hyp_step * E_mus[m]**2 / fin_hyp_a
-        if not (args.partial in ('exp', 'exponent', 'Wl')):
+        if not partial_GamR == 'exp':
             tmp = np.conj(res_fin[l][m]) * gs_fin[0][m] * factor    # <mu|lambda>* <mu|kappa=0> = <lambda|mu><mu|kappa=0> = <l|m><m|k=0>
         else:   # If Gamma(R) only in exponent (i.e. Wl), then indir_FCsums is woVR since it is part of prefactor
             tmp = np.conj(res_fin_woVR[l][m]) * gs_fin[0][m] * factor
@@ -671,7 +730,7 @@ for l in range (0,n_res_max+1):
     for m in range (0, n_fin_max + 1):
         if (fin_pot_type in ('hyperbel','hypfree')):
             factor = R_hyp_step * np.array(E_mus[m])**2 / fin_hyp_a
-        if not (args.partial in ('pre', 'prefactor')):
+        if not partial_GamR == 'pre':
             tmp = tmp + VEr_au**2 * np.abs(res_fin[l][m])**2 * factor      # W_l = sum_m ( VEr**2 |<m|l>|**2 ) for Morse or W_l = sum_m ( DeltaR R-DOS(m) VEr**2 |<m|l>|**2 ) for cont vibr fin states
         else:
             tmp = tmp + VEr_au_woVR**2 * np.abs(res_fin_woVR[l][m])**2 * factor
@@ -762,6 +821,31 @@ res_outer_fun = lambda t1: FX_t1(t1) \
                            * res_inner(t1)
 
 
+# for wavepacket in resonance state
+def t_plus(t):
+    return 1/(sigma*mp.sqrt(2)) * (t - 1.j*sigma**2*(Er_au+E_lambda-1.j*mp.pi*W_au+Omega_au))
+def t_minus(t):
+    return 1/(sigma*mp.sqrt(2)) * (t - 1.j*sigma**2*(Er_au+E_lambda-1.j*mp.pi*W_au-Omega_au))
+
+def gamma_plus(T_up):
+    return ((Er_au+E_lambda-1.j*mp.pi*W_au) * (mp.erf(t_plus(T_up)) \
+                                               - mp.erf(t_plus(-TX_au/2))) \
+            + 1.j/sigma * mp.sqrt(2/mp.pi) * (mp.exp(-t_plus(T_up)**2) \
+                                              - mp.exp(-t_plus(-TX_au/2)**2)))
+def gamma_minus(T_up):
+    return ((Er_au+E_lambda-1.j*mp.pi*W_au) * (mp.erf(t_minus(T_up)) \
+                                               - mp.erf(t_minus(-TX_au/2))) \
+            + 1.j/sigma * mp.sqrt(2/mp.pi) * (mp.exp(-t_minus(T_up)**2) \
+                                              - mp.exp(-t_minus(-TX_au/2)**2)))
+
+def wp_res_int(t,T_up):
+    return (-A0X*0.25j * mp.exp(-1.j*t*(Er_au+E_lambda-1.j*mp.pi*W_au)) \
+            * (mp.exp(-sigma**2/2 * (Er_au+E_lambda-1.j*mp.pi*W_au+Omega_au)**2) \
+                * gamma_plus(T_up) \
+               + mp.exp(-sigma**2/2 * (Er_au+E_lambda-1.j*mp.pi*W_au-Omega_au)**2) \
+                * gamma_minus(T_up)))
+
+
 #-------------------------------------------------------------------------
 #-------------------------------------------------------------------------
 # initialization
@@ -778,16 +862,21 @@ while (E_kin_au <= E_max_au):
 
 #-------------------------------------------------------------------------
 # constants / prefactors
-if not (args.partial in ('exp', 'exponent', 'Wl')):
+prefac_dir1 = 1j * cdg_au_V
+if not partial_GamR == 'exp':
     prefac_res1 = VEr_au * rdg_au / (n_res_max + 1)
     prefac_indir1 = -1j * np.pi * VEr_au**2 * cdg_au_V / (n_res_max + 1)
 else:
     prefac_res1 = VEr_au_woVR * rdg_au / (n_res_max + 1)
     prefac_indir1 = -1j * np.pi * VEr_au_woVR**2 * cdg_au_V / (n_res_max + 1)
-prefac_dir1 = 1j * cdg_au_V
 
 if (fin_pot_type in ('hyperbel','hypfree')):
     n_fin_max = n_fin_max_X
+
+# for wavepacket in resonance state(s)
+wp_prefs = [(1.j/(n_res_max+1) * rdg_au * gs_res[0][nlambda] \
+               + mp.pi/(n_res_max+1) * VEr_au * cdg_au_V * indir_FCsums[nlambda])
+            for nlambda in range(n_res_max+1)]
 
 
 ########################################
@@ -810,106 +899,120 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    while (E_kin_au <= E_max_au):
-        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
-            print('|', end = '', flush = True)
-            cnt = 0
-        else:
-            print('-', end = '', flush = True)
-            cnt = cnt + 1
-        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
-        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
-        p_au = np.sqrt(2*E_kin_au)
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin); for continuous mu: int ~ sum
-        if t_au==-TX_au/2:
-            squares = np.append(squares, 0.)
-            string = in_out.prep_output(0., E_kin_au, t_au)
-            outlines.append(string)
-            E_kin_au = E_kin_au + E_step_au
-            continue
-
-        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
-    #            Er_au = Er_a_au
-            
-            # Direct term
-            if (integ_outer == "quadrature"):
-                I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), t_au)
-                dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-
-            elif (integ_outer == "romberg"):
-                I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), t_au)
-                dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
-             
-            # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
-            J = 0
-            for nlambda in range (0,n_res_max+1):
-                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
-                    continue
-                E_lambda = E_lambdas[nlambda]
-                W_au = W_lambda[nlambda]
-                if (integ_outer == "quadrature"):
-                    res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), t_au)
+    if not wavepac_only: 
+        while (E_kin_au <= E_max_au):
+            if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+                print('|', end = '', flush = True)
+                cnt = 0
+            else:
+                print('-', end = '', flush = True)
+                cnt = cnt + 1
+            #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+            #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
+            p_au = np.sqrt(2*E_kin_au)
+            sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin); for continuous mu: int ~ sum
+            if t_au==-TX_au/2:
+                squares = np.append(squares, 0.)
+                string = in_out.prep_output(0., E_kin_au, t_au)
+                outlines.append(string)
+                E_kin_au = E_kin_au + E_step_au
+                continue
     
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-
-                elif (integ_outer == "romberg"):
-                    res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), t_au)
+            for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+                E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+        #            Er_au = Er_a_au
                 
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+                # Direct term
+                if (integ_outer == "quadrature"):
+                    I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), t_au)
+                    dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
     
-                J = (J
-                     + res_J1
-                     + indir_J1
-                     )
-    
-            # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
-            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
-            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
-            square = np.absolute(J + dir_J1)**2     # |J_mu|**2
-            if (fin_pot_type in ('hyperbel','hypfree')):
-                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
-                old_square = square
-                square = square * factor
-            sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
-            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
-            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
-
-        squares = np.append(squares, sum_square)
-
-        string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
-        outlines.append(string)
+                elif (integ_outer == "romberg"):
+                    I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), t_au)
+                    dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
+                 
+                # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
+                J = 0
+                for nlambda in range (0,n_res_max+1):
+                    if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+                        continue
+                    E_lambda = E_lambdas[nlambda]
+                    W_au = W_lambda[nlambda]
+                    if (integ_outer == "quadrature"):
+                        res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), t_au)
         
-        E_kin_au = E_kin_au + E_step_au     # @ t = const.
+                        if not partial_GamR == 'exp':
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
     
+                    elif (integ_outer == "romberg"):
+                        res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), t_au)
+                    
+                        if not partial_GamR == 'exp':
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+        
+                    J = (J
+                         + res_J1
+                         + indir_J1
+                         )
+        
+                # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+                # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+                #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
+                square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+                if (fin_pot_type in ('hyperbel','hypfree')):
+                    factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                    old_square = square
+                    square = square * factor
+                sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+                #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+                #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
     
-    in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
-    in_out.doout_movie(movie_out, outlines)
-    print()
-    max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
-    if (len(max_pos > 0)):                               # if there are such:
-        for i in range (0, len(max_pos)):
-            print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
-            outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+            squares = np.append(squares, sum_square)
     
+            string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
+            outlines.append(string)
+            
+            E_kin_au = E_kin_au + E_step_au     # @ t = const.
+        
+        
+        in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
+        in_out.doout_movie(movie_out, outlines)
+        print()
+        max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
+        if (len(max_pos > 0)):                               # if there are such:
+            for i in range (0, len(max_pos)):
+                print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
+                outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+    
+    # wavepacket in resonance state(s)
+    wp_ampls = []
+    for nlambda in range (0,n_res_max+1):
+        E_lambda = E_lambdas[nlambda]
+        W_au = W_lambda[nlambda]
+        wp_I = wp_res_int(t_au,t_au)
+        wp_pref = wp_prefs[nlambda] 
+        wp_ampl = wp_pref * wp_I
+        wp_string = format(nlambda, 'd') + '   ' + format(sciconv.atu_to_second(t_au), ' .18f') \
+                + '   ' + format(complex(wp_ampl), ' .15e')
+        wp_ampls.append(wp_string)
+    in_out.doout_1f(wp_res_out, wp_ampls)
+
 
     t_au = t_au + timestep_au
 
@@ -934,117 +1037,134 @@ while (t_au >= TX_au/2\
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    while (E_kin_au <= E_max_au):
-        if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
-            print('|', end = '', flush = True)
-            cnt = 0
-        else:
-            print('-', end = '', flush = True)
-            cnt = cnt + 1
-        #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
-        #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
-        p_au = np.sqrt(2*E_kin_au)
-        sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin)
-
-        for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
-            E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
-    #            Er_au = Er_a_au
-            
-            # Direct term
-            if (integ_outer == "quadrature"):
-                I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), TX_au/2)
-                dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
-#                    print(nmu, gs_fin[0][nmu], dir_J1)   #?
+    if not wavepac_only: 
+        while (E_kin_au <= E_max_au):
+            if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
+                print('|', end = '', flush = True)
+                cnt = 0
+            else:
+                print('-', end = '', flush = True)
+                cnt = cnt + 1
+            #print(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV')           #?
+            #outfile.write(f'{sciconv.hartree_to_ev(E_kin_au):.2} eV\n') #?
+            p_au = np.sqrt(2*E_kin_au)
+            sum_square = 0      # Total spectrum |J @ E_kin|**2 = sum_mu |J_mu @ E_kin|**2  (sum of contributions of all final states with E_kin)
     
-            elif (integ_outer == "romberg"):
-                I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), TX_au/2)
-                dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
-
-            # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
-            J = 0
-            for nlambda in range (0,n_res_max+1):
-                if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
-#                    print(nmu, nlambda, 'skipped')  #?
-                    continue
-                E_lambda = E_lambdas[nlambda]
-                W_au = W_lambda[nlambda]
+            for nmu in range (0, n_fin_max + 1):           # loop over all mu, calculate J_mu = J_dir,mu + J_nondir,mu
+                E_fin_au = E_fin_au_1 + E_mus[nmu]      # E_fin_au_1: inputted electronic E_fin_au, E_mus: vibrational eigenvalues of fin state
+        #            Er_au = Er_a_au
+                
+                # Direct term
                 if (integ_outer == "quadrature"):
-                    res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
-                    
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-#                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
-                    else:
-                        res_J1 = (prefac_res1 * res_I[0]
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I[0]
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-#                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
-    
-                elif (integ_outer == "romberg"):
-                    res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
-                    
-                    if not (args.partial in ('exp', 'exponential', 'Wl')):
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
-                    else:
-                        res_J1 = (prefac_res1 * res_I
-                                  * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
-                        indir_J1 = (prefac_indir1 * res_I
-                                    * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
-
-
-                J = (J
-                     + res_J1
-                     + indir_J1
-                     )
-    
-            # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
-            # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
-            #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
-            square = np.absolute(J + dir_J1)**2     # |J_mu|**2
-            if (fin_pot_type in ('hyperbel','hypfree')):
-                factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
-                old_square = square
-                square = square * factor
-            sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
-            #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
-            #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
-
-        squares = np.append(squares, sum_square)
-
-        string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
-        outlines.append(string)
+                    I1 = ci.complex_quadrature(fun_t_dir_1, (-TX_au/2), TX_au/2)
+                    dir_J1 = prefac_dir1 * I1[0] * gs_fin[0][nmu]        # [0] of quad integ result = integral (rest is est error & info); FC = <mu_n|kappa_0>
+    #                    print(nmu, gs_fin[0][nmu], dir_J1)   #?
         
-        E_kin_au = E_kin_au + E_step_au     # @ t = const.
+                elif (integ_outer == "romberg"):
+                    I1 = ci.complex_romberg(fun_t_dir_1, (-TX_au/2), TX_au/2)
+                    dir_J1 = prefac_dir1 * I1 * gs_fin[0][nmu]           # romberg returns only the integral, so no [0] necessary
+    
+                # J_nondir,mu = sum_lambda J_nondir,mu,lambda = sum_lambda (J_res,mu,lambda + J_indir,mu,lambda)
+                J = 0
+                for nlambda in range (0,n_res_max+1):
+                    if (fin_pot_type in ('hyperbel','hypfree') and nmu > n_fin_max_list[nlambda]):  # J_nondir,mu,lambda = 0 if repulsive |fin>|mu> lies higher than |res>|lambda>
+    #                    print(nmu, nlambda, 'skipped')  #?
+                        continue
+                    E_lambda = E_lambdas[nlambda]
+                    W_au = W_lambda[nlambda]
+                    if (integ_outer == "quadrature"):
+                        res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
+                        
+                        if not partial_GamR == 'exp':
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+    #                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
+                        else:
+                            res_J1 = (prefac_res1 * res_I[0]
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I[0]
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
+    #                        print(nmu, nlambda, 'res_J1 =', res_J1, 'indir_J1 =', indir_J1)   #?
+        
+                    elif (integ_outer == "romberg"):
+                        res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
+                        
+                        if not partial_GamR == 'exp':
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin[nlambda][nmu])
+                        else:
+                            res_J1 = (prefac_res1 * res_I
+                                      * gs_res[0][nlambda] * res_fin_woVR[nlambda][nmu])
+                            indir_J1 = (prefac_indir1 * res_I
+                                        * indir_FCsums[nlambda] * res_fin_woVR[nlambda][nmu])
     
     
-    in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
-    in_out.doout_movie(movie_out, outlines)
-    print()
-    max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
-    if (len(max_pos > 0)):                               # if there are such:
-        for i in range (0, len(max_pos)):
-            print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
-            outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+                    J = (J
+                         + res_J1
+                         + indir_J1
+                         )
+        
+                # Total trs prob (@E_kin, t) = sum_mu |J_mu|**2
+                # For cont rep fin: int (dE_mu |J_mu|**2 E-DOS(E_mu)) = int (dR_mu |J_mu|**2 R-DOS(R_mu))
+                #   R-DOS = E-DOS * Va / R_mu**2 = E-DOS * E_mu**2 / Va. If E-DOS = 1 & R_hyp_step = const: int (dR_mu |J_mu|**2 R-DOS) ~ sum_mu (R_hyp_step |J_mu|**2 E_mu**2 / Va)
+                square = np.absolute(J + dir_J1)**2     # |J_mu|**2
+                if (fin_pot_type in ('hyperbel','hypfree')):
+                    factor = R_hyp_step * E_mus[nmu]**2 / fin_hyp_a
+                    old_square = square
+                    square = square * factor
+                sum_square = sum_square + square        # |J|**2 = sum_mu |J_mu|**2
+                #print(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}')
+                #outfile.write(f'nmu = {nmu:>3}  f = {factor:.5f}  osq = {old_square:.5E}  sq = {square:.5E}  sum = {sum_square:.5E}\n')
     
+            squares = np.append(squares, sum_square)
+    
+            string = in_out.prep_output(sum_square, E_kin_au, t_au)     # returns str: E_kin_eV, t_s, sum_square = intensity
+            outlines.append(string)
+            
+            E_kin_au = E_kin_au + E_step_au     # @ t = const.
+        
+        
+        in_out.doout_1f(pure_out, outlines)     # writes each (E_kin, t = const, |J|**2) triple in a sep line into output file
+        in_out.doout_movie(movie_out, outlines)
+        print()
+        max_pos = argrelextrema(squares, np.greater)[0]      # finds position of relative (i. e. local) maxima of |J|**2 in an array
+        if (len(max_pos > 0)):                               # if there are such:
+            for i in range (0, len(max_pos)):
+                print(Ekins[max_pos[i]], squares[max_pos[i]])      # print all loc max & resp E_kin
+                outfile.write(str(Ekins[max_pos[i]]) + '  ' + str(squares[max_pos[i]]) + '\n')
+    
+    # wavepacket in resonance state(s)
+    wp_ampls = []
+    for nlambda in range (0,n_res_max+1):
+        E_lambda = E_lambdas[nlambda]
+        W_au = W_lambda[nlambda]
+        wp_I = wp_res_int(t_au,TX_au/2)
+        wp_pref = wp_prefs[nlambda] 
+        wp_ampl = wp_pref * wp_I
+        wp_string = format(nlambda, 'd') + '   ' + format(sciconv.atu_to_second(t_au), ' .18f') \
+                + '   ' + format(complex(wp_ampl), ' .15e')
+        wp_ampls.append(wp_string)
+    in_out.doout_1f(wp_res_out, wp_ampls)
+
 
     t_au = t_au + timestep_au
 
 
 
 
+print('In order to process the wavepacket results, consider running res_wavepacket.py')
+
 dt_end = datetime.now()
-print(str(dt_end))
 print('Total runtime:', str(dt_end - dt_start))
+print(str(dt_end))
 outfile.write('\n' + str(dt_end) + '\n')
 outfile.write('Total runtime:' + ' ' + str(dt_end - dt_start))
 
 outfile.close
 pure_out.close
 movie_out.close
+wp_res_out.close
