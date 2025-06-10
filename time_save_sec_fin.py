@@ -68,7 +68,7 @@ Xshape = 'convoluted'
 #   gs_de, gs_a, gs_Req, gs_const,
 #   res_de, res_a, res_Req, res_const,
 #   fin_a, fin_b, fin_c, fin_d, fin_pot_type)
-# Added dummy variable to match up number of arguments
+# Added dummy variables to match up number of arguments
 
 (rdg_au, cdg_au,
  Er_a_eV, Er_b_eV, tau_a_s, tau_b_s, E_fin_eV, tau_s, E_fin_eV_2, tau_s_2,
@@ -77,12 +77,13 @@ Xshape = 'convoluted'
  omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, FWHM_L,
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
- integ, integ_outer, dummy1,
+ integ, integ_outer, _,
+ _, _, _, _,
  mass1, mass2, grad_delta, R_eq_AA,
  V_RICD_in_a, V_RICD_in_b, V_RICD_in_c, V_RICD_in_d,
  V_fin_RICD_a, V_fin_RICD_b,
  V_ICD_in_a, V_ICD_in_b, V_ICD_in_c, V_ICD_in_d,
- V_fin_ICD_a, V_fin_ICD_b, dummy2) = in_out.read_input(infile, outfile)
+ V_fin_ICD_a, V_fin_ICD_b, _) = in_out.read_input(infile, outfile)
 
 #-------------------------------------------------------------------------
 # Convert input parameters to atomic units
