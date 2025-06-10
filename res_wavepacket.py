@@ -68,7 +68,7 @@ else:
 
 with open(os.devnull, 'w') as dummyfile, silence_print():
     (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _,
-     _, _, _, _, _, _, _, _, mass1, mass2, _, _, _, _, _, _, De, alpha, Req, _, _, _, _, _, _
+     _, _, _, _, _, _, _, _, _, _, _, _, mass1, mass2, _, _, _, _, _, _, De, alpha, Req, _, _, _, _, _, _
      ) = in_out.read_input(settings, dummyfile)
 
 outfile=f'wf_{infile}'
@@ -138,7 +138,6 @@ np.savetxt(expectfile, expect, delimiter='   ', fmt=['% .7e', '% .15e'])
 
 
 # Plot to eps
-print(f"[{R_low}:{R_hig}]")
 g = gnuplot.Gnuplot()
 g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' lw 4",
       output = "'gp_outfile.eps'",

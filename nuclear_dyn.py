@@ -11,7 +11,7 @@
 ##########################################################################
 # written by: Elke Fasshauer November 2020                               #
 # extended by: Alexander Riegel July 2023 - December 2024                #
-# last change: 2025-05-13 AVR                                            #
+# last change: 2025-06-10 AVR                                            #
 ##########################################################################
 
 import argparse
@@ -32,7 +32,9 @@ import sciconv
 import wellenfkt as wf
 
 dt_start = datetime.now()
-print(str(dt_start))
+
+# set logging outfile
+outfile = open("eldest.out", mode='w')
 
 # don't print warnings unless python -W ... is used
 if not sys.warnoptions:
@@ -71,36 +73,29 @@ parser.add_argument('-g', '--gamma', help='''Optional binary file containing the
                     "scipy.interpolate.PchipInterpolator(xarray,yarray)".
                     The file shall be binary and contain the functional dependence in a pickled form (preferably by dill).
                     +++ This option is incompatible with the -f/--fc option.''')
-parser.add_argument('-p', '--partial', help='''If 'prefactor' or 'pre' is chosen, then the Gamma(R) dependence is incorporated
-                    only into the overlap integrals in the prefactors for the transition amplitude
-                    but not in W_lambda in the exponents. If 'exponent' or 'exp' or 'Wl' is chosen, the reverse is true.
-                    If none is given, the Gamma(R) dependence is incorporated in all relevant places (default).''')
+#parser.add_argument('-p', '--partial', help='''If 'prefactor' or 'pre' is chosen, then the Gamma(R) dependence is incorporated
+#                    only into the overlap integrals in the prefactors for the transition amplitude
+#                    but not in W_lambda in the exponents. If 'exponent' or 'exp' or 'Wl' is chosen, the reverse is true.
+#                    If none is given, the Gamma(R) dependence is incorporated in all relevant places (default).''')
 parser.add_argument('-F', '--FC', help='''Same as '-f' and '--fc', but for an additional set with overlap integrals
                     without Gamma(R) dependence in the res-fin integrals. The file structure is the same as before.
-                    +++ This option is only available in combination with the -p/--partial option.''')
-parser.add_argument('-w', '--wavepacket_only', action='store_true', help='''If this flag is given, only the projection
-                    onto the vibrational states of the electronic resonance state (needed to reconstruct
-                    the wavepacket in the resonance state) will be calculated, whereas the calculation of the projections
-                    onto the final state (needed for the spectrum) will be skipped. Also, progress will be written
-                    to eldest.out as usual, but existing full.dat and movie.dat files will not be altered.''')
+                    +++ This option is only available if partial_GamR is not None.''')
+#                    +++ This option is only available in combination with the -p/--partial option.''')
+#parser.add_argument('-w', '--wavepacket_only', action='store_true', help='''If this flag is given, only the projection
+#                    onto the vibrational states of the electronic resonance state (needed to reconstruct
+#                    the wavepacket in the resonance state) will be calculated, whereas the calculation of the projections
+#                    onto the final state (needed for the spectrum) will be skipped. Also, progress will be written
+#                    to eldest.out as usual, but existing full.dat and movie.dat files will not be altered.''')
 args = parser.parse_args()
+
+print(str(dt_start))
+outfile.write(str(dt_start) + '\n')
+outfile.write('Tempora mutantur, nos et mutamur in illis.')
+outfile.write("The results were obtained with nuclear_dyn.py \n")
 
 infile = args.infile
 print(infile)
 
-#-------------------------------------------------------------------------
-# open outputfile
-outfile = open("eldest.out", mode='w')
-pure_out = open('full.dat' if not args.wavepacket_only else devnull, mode='w')
-movie_out = open('movie.dat' if not args.wavepacket_only else devnull, mode='w')
-#popfile = open("pop.dat", mode='w')
-wp_res_out = open('wp_res.dat', mode='w')
-
-outfile.write(str(dt_start) + '\n')
-outfile.write("The results were obtained with nuclear_dyn.py \n")
-if args.wavepacket_only:
-    print("Only the resonance-state projections will be calculated, not the spectrum (final-state projections).")
-    outfile.write("Only the resonance-state projections will be calculated, not the spectrum (final-state projections)." + '\n')
 #-------------------------------------------------------------------------
 # set some defaults
 Xshape = 'convoluted'
@@ -129,11 +124,44 @@ Xshape = 'convoluted'
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
  integ, integ_outer, Gamma_type,
+ fc_precalc, partial_GamR, part_fc_pre, wavepac_only,
  mass1, mass2, grad_delta, R_eq_AA,
  gs_de, gs_a, gs_Req, gs_const,
  res_de, res_a, res_Req, res_const,
  fin_a, fin_b, fin_c, fin_d, fin_pot_type
  ) = in_out.read_input(infile, outfile)
+
+
+#-------------------------------------------------------------------------
+# open further outputfiles
+pure_out = open('full.dat' if not wavepac_only else devnull, mode='w')
+movie_out = open('movie.dat' if not wavepac_only else devnull, mode='w')
+#popfile = open("pop.dat", mode='w')
+wp_res_out = open('wp_res.dat', mode='w')
+
+if fc_precalc:
+    print('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc))
+    outfile.write('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc) + '\n')
+else:
+    print('All Franck-Condon overlap integrals are calculated from scratch')
+    outfile.write('All Franck-Condon overlap integrals are calculated from scratch\n')
+
+if partial_GamR:
+    if part_fc_pre:
+        print('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC))
+        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC) + '\n')
+    else:
+        print('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch')
+        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch\n')
+
+if wavepac_only:
+    print('Only the resonance-state projections will be calculated, not the spectrum (final-state projections)')
+    outfile.write('Only the resonance-state projections will be calculated, not the spectrum (final-state projections)' + '\n')
+
+if args.gamma:
+    print('Gamma(R) dependence is read from file ' + str(args.gamma))
+    outfile.write('Gamma(R) dependence is read from file ' + str(args.gamma) + '\n')
+
 
 #-------------------------------------------------------------------------
 # Convert input parameters to atomic units
@@ -221,7 +249,7 @@ if Gamma_type == 'const':
     print('VEr_au = ', VEr_au)
     outfile.write('VEr_au = ' + str(VEr_au) + '\n')
 elif Gamma_type == 'R6':
-    if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+    if partial_GamR:
         VEr_au_woVR = VEr_au
         print('VEr_au = ', VEr_au)
         outfile.write('VEr_au = ' + str(VEr_au) + '\n')
@@ -229,7 +257,7 @@ elif Gamma_type == 'R6':
     print('VEr_au_adjusted = ', VEr_au)
     outfile.write('VEr_au_adjusted = ' + str(VEr_au) + '\n')
 elif Gamma_type == 'external':
-    if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+    if partial_GamR:
         VEr_au_woVR = VEr_au
         print('VEr_au = ', VEr_au)
         outfile.write('VEr_au = ' + str(VEr_au) + '\n')
@@ -346,65 +374,84 @@ for k in range(0,n_gs_max+1):   # prepare the above (empty) sub-lists
 for l in range(0,n_res_max+1):
     res_fin.append(list())
 
-if not (Gamma_type == 'external') and not (args.gamma == None):
+if not fc_precalc and args.fc:
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file was provided without being requested. Programme terminated.')
+elif fc_precalc and not args.fc:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file was requested but not provided. Programme terminated.')
+elif not (Gamma_type == 'external') and args.gamma:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
     sys.exit('!!! Gamma-R-dependence file was provided although Gamma_type is not "external". Programme terminated.')
-elif (Gamma_type == 'external') and (args.fc == None) and (args.gamma == None):
+elif (Gamma_type == 'external') and not args.fc and not args.gamma:
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
     sys.exit('!!! Gamma_type is "external" but no additional input file was provided. Programme terminated.')
-elif not (args.fc == None) and not (args.gamma == None):
+elif args.fc and args.gamma:
     outfile.close
     pure_out.close
     movie_out.close
-    sys.exit('!!! Two additional input files were provided. Programme terminated.')
-elif (fin_pot_type == 'morse') and not (args.fc == None):
+    wp_res_out.close
+    sys.exit('!!! FC input file and Gamma-R-dependence file were provided at the same time. Programme terminated.')
+elif (fin_pot_type == 'morse') and (args.fc or args.FC):
     outfile.close
     pure_out.close
     movie_out.close
+    wp_res_out.close
     sys.exit('!!! FC input is not supported for Morse-potential final states. Programme terminated.')
+elif not part_fc_pre and args.FC:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was provided without being requested. Programme terminated.')
+elif part_fc_pre and not args.FC:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was requested but not provided. Programme terminated.')
+elif part_fc_pre and not partial_GamR:
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! FC input file for partial Gamma-R dependence was requested although no such treatment was requested. Programme terminated.')
+elif partial_GamR and ((args.fc and not args.FC) or (args.FC and not args.fc)):   # If partial_GamR but -f and -F not either both present or both absent, throw error (FC calc code would have to be changed)  
+    outfile.close
+    pure_out.close
+    movie_out.close
+    wp_res_out.close
+    sys.exit('!!! If partial_GamR is requested, then either both or none of the additional FC input files with (-f) and without (-F) Gamma-R dependence must be provided at the moment. Programme terminated.')
+
 
 if Gamma_type == 'const':
     V_of_R = lambda R: 1
-    args.partial = None     # If Gamma(R)=const., then FC integrals with and without Gamma(R) are identical
+    partial_GamR = None     # If Gamma(R)=const., then FC integrals with and without Gamma(R) are identical
 elif Gamma_type == 'R6':
     V_of_R = lambda R: R**(-3)
-elif not (args.gamma == None):
+elif args.gamma:
     with open(args.gamma, 'rb') as gammafile:
         Gamma_of_R = dill.load(gammafile)
     V_of_R = lambda R: np.sqrt(Gamma_of_R(R) / (2*np.pi))
 else:                           # For 'external' but from FC file
     V_of_R = lambda R: 1
 
-if (args.partial in ('pre', 'prefactor', 'exp', 'exponent', 'Wl')):
+if partial_GamR:
     res_fin_woVR = []
     for l in range(0,n_res_max+1):
         res_fin_woVR.append(list())
-    if not (args.fc == None) and (args.FC == None):     # If -f and -p but not -F, throw error (FC calc code would have to be changed)
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! Combination of -f and -p requires -F at the moment. Programme terminated.')
-    if not (args.FC == None) and (args.fc == None):     # If -F and -p but not -f, throw error (FC calc code would have to be changed)
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! Combination of -F and -p requires -f at the moment. Programme terminated.')
-elif not (args.partial == None):
-    outfile.close
-    pure_out.close
-    movie_out.close
-    sys.exit('!!! Requested use of overlap integrals with and without Gamma-of-R dependence unknown. Programme terminated.')
-else:
-    args.partial = None     # Just to be safe, should be so anyway at this point.
-    if not (args.FC == None):
-        outfile.close
-        pure_out.close
-        movie_out.close
-        sys.exit('!!! FC input without Gamma-of-R dependence was provided without -p/--partial option. Programme terminated.')
 
 
 # Numerical integration failsafe check: calculate test FC overlap integral
@@ -469,7 +516,7 @@ if (fin_pot_type == 'morse'):
                                  l,res_a,res_Req,res_de,R_min,R_max,
                                  V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
             res_fin[l].append(FC)
-            if not (args.partial == None):
+            if partial_GamR:
                 FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
                                      l,res_a,res_Req,res_de,R_min,R_max,
                                      V_of_R=lambda R: 1)
@@ -477,7 +524,7 @@ if (fin_pot_type == 'morse'):
 
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
-    if not (args.fc == None):            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
+    if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
         gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         for m in range(0,n_fin_max_X+1):
@@ -485,7 +532,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             E_mus.insert(0,E_mu)        # Present loop starts at high energies, but these shall get high mu numbers = stand at the end of the lists -> fill lists from right to left
             R_start = R_start + R_hyp_step
         norm_factor = 1.
-        if not (args.partial == None):
+        if partial_GamR:
             gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
             if not (gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
                     and n_fin_max_X_woVR == n_fin_max_X and len(res_fin) == len(res_fin_woVR)):
@@ -493,6 +540,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
                 outfile.close
                 pure_out.close
                 movie_out.close
+                wp_res_out.close
                 sys.exit('!!! Files of FC integrals with and without Gamma(R) dependence are incompatible. Programme terminated.')
 
     else:
@@ -518,7 +566,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
                 res_fin[l].insert(0,FC)
                 print(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}')   #?
     #            outfile.write(f'l = {l}, res_fin = {FC: 10.10E}, |res_fin| = {np.abs(FC):10.10E}\n')   #?
-                if not (args.partial == None):
+                if partial_GamR:
                     FC = FCfunc(l,res_a,res_Req,res_de,red_mass,
                                 fin_hyp_a,fin_hyp_b,R_start,R_min,R_max,
                                 V_of_R=lambda R: 1)
@@ -618,7 +666,7 @@ if (fin_pot_type in ('hyperbel','hypfree')):
     print("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero")
     outfile.write("All overlaps between ground or resonance state and final state\n outside the indicated quantum numbers are considered zero\n")
 
-if not (args.partial == None):
+if partial_GamR:
     print()
     print('-----------------------------------------------------------------')
     print("Franck-Condon overlaps between final & resonance state - no V(R)")
@@ -642,9 +690,9 @@ if not (args.partial == None):
                     print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
                     print('   ...')
     print('These additional overlaps without the V(R) dependence are used\n only in',
-            'the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+            'the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
     outfile.write('These additional overlaps without the V(R) dependence are used\n only in '
-            + ('the prefactors to the time integrals' if (args.partial in ('pre', 'prefactor')) else 'the calculation of the W_lambda values')
+            + ('the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
             + '\n')
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
@@ -657,7 +705,7 @@ for l in range (0,n_res_max+1):
     for m in range (0, n_fin_max + 1):
         if (fin_pot_type in ('hyperbel','hypfree')):            # R-DOS for 'integration' over R_mu instead of [E_]mu
             factor = R_hyp_step * E_mus[m]**2 / fin_hyp_a
-        if not (args.partial in ('exp', 'exponent', 'Wl')):
+        if not partial_GamR == 'exp':
             tmp = np.conj(res_fin[l][m]) * gs_fin[0][m] * factor    # <mu|lambda>* <mu|kappa=0> = <lambda|mu><mu|kappa=0> = <l|m><m|k=0>
         else:   # If Gamma(R) only in exponent (i.e. Wl), then indir_FCsums is woVR since it is part of prefactor
             tmp = np.conj(res_fin_woVR[l][m]) * gs_fin[0][m] * factor
@@ -682,7 +730,7 @@ for l in range (0,n_res_max+1):
     for m in range (0, n_fin_max + 1):
         if (fin_pot_type in ('hyperbel','hypfree')):
             factor = R_hyp_step * np.array(E_mus[m])**2 / fin_hyp_a
-        if not (args.partial in ('pre', 'prefactor')):
+        if not partial_GamR == 'pre':
             tmp = tmp + VEr_au**2 * np.abs(res_fin[l][m])**2 * factor      # W_l = sum_m ( VEr**2 |<m|l>|**2 ) for Morse or W_l = sum_m ( DeltaR R-DOS(m) VEr**2 |<m|l>|**2 ) for cont vibr fin states
         else:
             tmp = tmp + VEr_au_woVR**2 * np.abs(res_fin_woVR[l][m])**2 * factor
@@ -814,13 +862,13 @@ while (E_kin_au <= E_max_au):
 
 #-------------------------------------------------------------------------
 # constants / prefactors
-if not (args.partial in ('exp', 'exponent', 'Wl')):
+prefac_dir1 = 1j * cdg_au_V
+if not partial_GamR == 'exp':
     prefac_res1 = VEr_au * rdg_au / (n_res_max + 1)
     prefac_indir1 = -1j * np.pi * VEr_au**2 * cdg_au_V / (n_res_max + 1)
 else:
     prefac_res1 = VEr_au_woVR * rdg_au / (n_res_max + 1)
     prefac_indir1 = -1j * np.pi * VEr_au_woVR**2 * cdg_au_V / (n_res_max + 1)
-prefac_dir1 = 1j * cdg_au_V
 
 if (fin_pot_type in ('hyperbel','hypfree')):
     n_fin_max = n_fin_max_X
@@ -851,7 +899,7 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    if not args.wavepacket_only: 
+    if not wavepac_only: 
         while (E_kin_au <= E_max_au):
             if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
                 print('|', end = '', flush = True)
@@ -893,7 +941,7 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
                     if (integ_outer == "quadrature"):
                         res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), t_au)
         
-                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                        if not partial_GamR == 'exp':
                             res_J1 = (prefac_res1 * res_I[0]
                                       * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                             indir_J1 = (prefac_indir1 * res_I[0]
@@ -907,7 +955,7 @@ while ((t_au <= TX_au/2) and (t_au <= tmax_au)):
                     elif (integ_outer == "romberg"):
                         res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), t_au)
                     
-                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                        if not partial_GamR == 'exp':
                             res_J1 = (prefac_res1 * res_I
                                       * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                             indir_J1 = (prefac_indir1 * res_I
@@ -989,7 +1037,7 @@ while (t_au >= TX_au/2\
     outfile.write('t_s = ' + str(t_s) + '\n')
     movie_out.write('"' + format(t_s*1E15, '.3f') + ' fs' + '"' + '\n')
     cnt = 0     # initialize counter for printing progress
-    if not args.wavepacket_only: 
+    if not wavepac_only: 
         while (E_kin_au <= E_max_au):
             if (cnt == 4):  # print progress: for each E_kin one '-', but for every fifth one '|' instead
                 print('|', end = '', flush = True)
@@ -1027,7 +1075,7 @@ while (t_au >= TX_au/2\
                     if (integ_outer == "quadrature"):
                         res_I = ci.complex_quadrature(res_outer_fun, (-TX_au/2), TX_au/2)
                         
-                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                        if not partial_GamR == 'exp':
                             res_J1 = (prefac_res1 * res_I[0]
                                       * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                             indir_J1 = (prefac_indir1 * res_I[0]
@@ -1043,7 +1091,7 @@ while (t_au >= TX_au/2\
                     elif (integ_outer == "romberg"):
                         res_I = ci.complex_romberg(res_outer_fun, (-TX_au/2), TX_au/2)
                         
-                        if not (args.partial in ('exp', 'exponential', 'Wl')):
+                        if not partial_GamR == 'exp':
                             res_J1 = (prefac_res1 * res_I
                                       * gs_res[0][nlambda] * res_fin[nlambda][nmu])
                             indir_J1 = (prefac_indir1 * res_I
@@ -1108,12 +1156,15 @@ while (t_au >= TX_au/2\
 
 
 
+print('In order to process the wavepacket results, consider running res_wavepacket.py')
+
 dt_end = datetime.now()
-print(str(dt_end))
 print('Total runtime:', str(dt_end - dt_start))
+print(str(dt_end))
 outfile.write('\n' + str(dt_end) + '\n')
 outfile.write('Total runtime:' + ' ' + str(dt_end - dt_start))
 
 outfile.close
 pure_out.close
 movie_out.close
+wp_res_out.close

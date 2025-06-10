@@ -10,20 +10,15 @@
 # written by: Elke Fasshauer August 2019                                 #
 ##########################################################################
 
-import scipy.integrate as integrate
-#from scipy.special import gamma
-from scipy.special import factorial
-#from scipy.special import eval_genlaguerre
-#from scipy.special import genlaguerre
-import numpy as np
-import sciconv as sc
-#import in_out
-#import sys
-#import warnings
-import potentials
-import complex_integration as ci
 import mpmath
 from mpmath import coulombf, coulombg
+import numpy as np
+import scipy.integrate as integrate
+from scipy.special import factorial
+
+import complex_integration as ci
+import sciconv as sc
+import potentials
 
 #-------------------------------------------------------------------------
 
