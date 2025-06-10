@@ -10,13 +10,13 @@ import numpy as np
 import pandas as pd
 import os
 from pathlib import Path
-from pygnuplot import gnuplot
+from pygnuplot import gnuplot   # Module is py-gnuplot
 from scipy.integrate import romb, simpson, trapezoid
 import subprocess
 import sys
 sys.path.append('/mnt/home/alexander/eldest')
 import warnings
-warnings.filterwarnings(action='ignore', category=np.ComplexWarning)
+warnings.filterwarnings(action='ignore', category=np.exceptions.ComplexWarning)
 
 import in_out
 import wellenfkt as wf
@@ -129,15 +129,16 @@ np.savetxt(popfile, pop, delimiter='   ', fmt=['% .7e', '% .15e'])
 
 expectfile=f'expect-R_{infile}'
 expect = pd.DataFrame()
-expect.loc[0, 0] = mata[1][0]
-expect.loc[0, 1] = 0.
+#expect.loc[0, 0] = mata[1][0]
+#expect.loc[0, 1] = 0.
 for t in range(1,len(eata)//len(R_arr)):
-    expect.loc[t, 0] = mata[1][t]
-    expect.loc[t, 1] = simpson(eata[t*len(R_arr):(t+1)*len(R_arr)][:,0]*eata[t*len(R_arr):(t+1)*len(R_arr)][:,3]**2,dx=R_arr[1]-R_arr[0])/pop[1][t]
+    expect.loc[t-1, 0] = mata[1][t]
+    expect.loc[t-1, 1] = simpson(eata[t*len(R_arr):(t+1)*len(R_arr)][:,0]*eata[t*len(R_arr):(t+1)*len(R_arr)][:,3]**2,dx=R_arr[1]-R_arr[0])/pop[1][t]
 np.savetxt(expectfile, expect, delimiter='   ', fmt=['% .7e', '% .15e'])
 
 
 # Plot to eps
+print(f"[{R_low}:{R_hig}]")
 g = gnuplot.Gnuplot()
 g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' lw 4",
       output = "'gp_outfile.eps'",
@@ -146,29 +147,31 @@ g.set(terminal = "postscript enhanced color size 30cm,15cm font 'Helvetica,26' l
       rmargin = "-5.0",
       cbtics = "font ',20'",
       xlabel = "'R (a.u.)'",
-      ylabel = "'t (s)'",
+      ylabel = "'t (fs)'",
       zlabel = "'P (a.u.)'",
-#      xrange = f"[{R_low}:{R_hig}]",
-      xrange = "[5.8:6.8]",
-      yrange = "[-1.2e-15:1.e-13]",
+      xrange = f"[{R_low}:{R_hig}]",
+#      xrange = "[5.8:6.8]",
+      yrange = "[-1.2:100]",
       key = None,
       view = "map",
       size = "ratio 0.5 0.8,1")
-g.splot(f"'{outfile_pm3d}' u 1:2:4 w pm3d")
+g.splot(f"'{outfile_pm3d}' u 1:(1e15*$2):4 w pm3d")
 
-# Convert to pdf, crop pdf and clean up
-subprocess.check_call([
-    'gs',
-    '-q',   # quiet
-    '-P-',  # don't look first in current dir for lib files
-    '-sDEVICE=pdfwrite',        # select output device
-    '-dEPSCrop',    # crop to EPS bounding box
-    '-sOutputFile=gp_uncropped.pdf',    # select output file
-    '-dBATCH',      # exit gs after processing
-    '-dNOPAUSE',    # no prompt, no pause at end of pages
-    'gp_outfile.eps'            # input file
-])
-with open(os.devnull, 'w') as dummyout:
-    subprocess.call(['pdfcrop', 'gp_uncropped.pdf', 'wavefunction_res_combined.pdf'], stdout=dummyout)
-os.remove('gp_outfile.eps')
-os.remove('gp_uncropped.pdf')
+# Convert to pdf, crop pdf and clean up (conversion wont work, so perform the commands printed in the end directly in the shell)
+#subprocess.run([
+#    'gs',
+#    '-P-',  # don't look first in current dir for lib files
+#    '-dSAFER',
+#    '-q',   # quiet
+#    '-dNOPAUSE',    # no prompt, no pause at end of pages
+#    '-dBATCH',      # exit gs after processing
+#    '-sDEVICE=pdfwrite',        # select output device
+##    '-dEPSCrop',    # crop to EPS bounding box
+#    '-sOutputFile=gp_uncropped.pdf',    # select output file
+#    'gp_outfile.eps',            # input file
+#], shell=False)
+#with open(os.devnull, 'w') as dummyout:
+#    subprocess.call(['pdfcrop', 'gp_uncropped.pdf', 'wavefunction_res_combined.pdf'], stdout=dummyout)
+#os.remove('gp_outfile.eps')
+#os.remove('gp_uncropped.pdf')
+print('### Manually perform the following command: ###\nps2pdf gp_outfile.eps gp_uncropped.pdf; pdfcrop gp_uncropped.pdf wavefunction_res_combined.pdf >/dev/null; rm gp_outfile.eps gp_uncropped.pdf\n######')
