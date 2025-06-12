@@ -1,5 +1,4 @@
-##!/Library/Frameworks/Python.framework/Versions/2.7/bin/python2
-##!/usr/bin/python
+##!/opt/homebrew/opt/python@3/libexec/bin/python
 
 ##########################################################################
 #                                    ELDEST                              #
@@ -23,6 +22,7 @@ import in_out
 import sys
 import warnings
 from scipy.special import erf
+from scipy.special import log_ndtr
 from scipy import fft
 
 
@@ -130,6 +130,13 @@ VEr_au        = np.sqrt(Gamma_au/ (2*np.pi))
 #cdg_au = rdg_au / ( q * np.pi * VEr_au)
 rdg_au = cdg_au * ( q * np.pi * VEr_au)
 print("rdg_au = ", rdg_au)
+
+#-------------------------------------------------------------------------
+# try a new error function, which would solve the nan problem from the
+# IR_after calculation
+#-------------------------------------------------------------------------
+def ndtr_erf(z0,z1):
+    return 2* (np.exp(log_ndtr(z1*np.sqrt(2))) - np.exp(log_ndtr(z0*np.sqrt(2))))
 
 #-------------------------------------------------------------------------
 in_out.check_input(Er_au, E_fin_au, Gamma_au,
@@ -243,6 +250,8 @@ elif (Lshape == "gauss"):
 #                                     )
 #                                  )
 
+
+# bis nL <= 9 funktiniert diese Routine
 #phi = 0
     IR_after = lambda t1: np.exp(-1j * p_au**2/2 * (t_au - t1)) \
                           *np.exp(-1j * E_fin_au * (t_au - t1)) \
@@ -265,6 +274,7 @@ elif (Lshape == "gauss"):
                                            / np.sqrt(2) / sigma_L)
                                      )
                                   )
+
 
 #-------------------------------------------------------------------------
 # technical defintions of functions
