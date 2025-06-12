@@ -10,7 +10,7 @@
 
 import sciconv
 import numpy as np
-from sys import exit
+import sys
 
 
 #-------------------------------------------------------------------------
@@ -18,69 +18,78 @@ from sys import exit
 def read_input(inputfile, outfile):
 #-------------------------------------------------------------------------
     # define default parameters
-    rdg_au       = 0.3
-    cdg_au       = 0.9
+    # transitions dipole moments
+    rdg_au       = 0.3            # transition dipole moment into the resonance state
+    cdg_au       = 0.9            # transition dipole moment into any continuum state
     q            = 1
     # parameters of the investigated system
-    # the ground state energy is being defined as Eg = 0
-    Er_a_eV       =  150.0        # resonance energy in eV
+    # the ground state (vibrational gs of electronic gs) energy is being defined as EG = 0
+    Er_a_eV       =  150.0        # resonance energy (at potential minimum) in eV 
     Er_b_eV       =    0.0
     tau_a_s       =  0.0
     tau_b_s       =  0.0
-    E_fin_eV      =  70.0         # final state energy in eV
-    tau_s         =  4.0E-16      # lifetime
+    E_fin_eV      =  70.0         # final state energy (at potential minimum) in eV
+    tau_s         =  4.0E-16      # lifetime in s
     E_fin_eV_2    =  0.0
     tau_s_2       =  4.0E-16
     interact_eV   =  0.0
     #
     # laser parameters
-    Omega_eV      = 150.0         #
-    n_X           = 5
+    Omega_eV      = 150.0         # mean photon energy of the XUV pulse in eV
+    n_X           = 5             # number of cycles within the XUV pulse
     I_X           = 1.0E12        # intensity of the XUV pulse in W/cm^2
     X_shape       = "gauss"       # options: gauss, sinsq
-    Xshape        = "convoluted"
+    Xshape        = "convoluted"  # options: convoluted, infinite
     #
     # dressing laser parameters
     omega_eV      = 1.6           # IR pulse
     n_L           = 10
-    I_L           = 1.0E12        # intensity of the IR pulse in W/cm^2
+    I_L           = 1.0E12
     Lshape        = "sinsq"
-    delta_t_s     = 0.0E-18       # time difference between the maxima of the two pulses
+    delta_t_s     = 0.0E-18
     shift_step_s  = 500.0E-18
     phi           = 0
     FWHM_L       = 500E-18
     #
     # parameters of the simulation
-    tmax_s        = 2.5E-15       # simulate until time tmax in seconds
-    timestep_s    = 0.5E-16     # evaluate expression every timestep_s seconds 
-    E_step_eV     = 1.00          # energy difference between different evaluated Omegas
+    tmax_s        = 2.5E-15       # simulate until time tmax in s
+    timestep_s    = 0.5E-16       # evaluate expression every timestep_s seconds
+    E_step_eV     = 1.00          # energy difference between different evaluated electron kinetic energies 
     #
     E_min_eV      =  30.0
     E_max_eV      =  50.0
     #
-    integ         = "analytic"
-    integ_outer   = "romberg"
+    integ         = "analytic"    # options: analytic, (quadrature, romberg - both currently unavailable)  
+    integ_outer   = "romberg"     # options: quadrature, romberg
+    Gamma_type    = "const"       # options: const, R6, exp
+    #
+    fc_precalc    = "False"       #
+    partial_GamR  = "None"        # options: None, pre, exp
+    part_fc_pre   = "False"       #
+    wavepac_only  = "False"       #
+    #
     # parameters for the nuclear dynamics
-    mass1         = 20.1797 #in g/mol
-    mass2         = 20.1797 # in g/mol
+    mass1         = 20.1797       # in g/mol
+    mass2         = 20.1797       # in g/mol
     grad_delta    = 0.001
     R_eq_AA       = 3.08
-# GS Parameters # use atomic units
+    # vibrational states parameters  # provide everything in au (de in Hartree, a in inverse Bohr, Req in Bohr)
+    # ground-state parameters
     gs_de      = 0
     gs_a       = 0
     gs_Req     = 0
     gs_const   = 47.6930
-# resonant state parameters
+    # resonance-state parameters
     res_de     = -33.179112
     res_a      = 1.930064
     res_Req    = 37.757254
     res_const  = 47.6930
-# final state parameters
-    fin_a      = -15.869110
-    fin_b      = 1.659155
-    fin_c      = 75.293906
-    fin_d      = 47.6930
-    fin_pot_type  = 'morse'
+    # final-state parameters
+    fin_a      = -15.869110       # for morse: fin_de; for hyperbel or hypfree: V_a in au (Hartree * Bohr)
+    fin_b      = 1.659155         # for morse: fin_a; for hyperbel or hypfree: V_b in au (Hartree)
+    fin_c      = 75.293906        # for morse: fin_Req; for hyperbel or hypfree: step width for R_start for vibrational energies (fin_a/R_start) in au (Bohr)
+    fin_d      = 47.6930          # for morse: fin_const; for hyperbel or hypfree: FC factor threshold for calculating the trs integral
+    fin_pot_type  = 'morse'       # options: morse, hyperbel, hypfree
 #-------------------------------------------------------------------------
 
     f = open(inputfile, 'r')
@@ -269,10 +278,48 @@ def read_input(inputfile, outfile):
                 print('no integration scheme selected')
                 outfile.write('no integration scheme selected \n')
 
+        elif (words[0] == 'Gamma_type'):
+            if (words[2] == 'const'):
+                Gamma_type = 'const'
+                print('Dependence of Gamma on R: constant')
+                outfile.write('Dependence of Gamma on R = constant \n')
+            elif (words[2] == 'R6'):
+                Gamma_type = 'R6'
+                print('Dependence of Gamma on R: R^(-6)')
+                outfile.write('Dependence of Gamma on R: R^(-6) \n')
+            elif (words[2] == 'exp'):
+                Gamma_type = 'exp'
+                print('Dependence of Gamma on R: e^(-aR)')
+                outfile.write('Dependence of Gamma on R: e^(-aR) \n')
+            elif (words[2] == 'external'):
+                Gamma_type = 'external'
+                print('Dependence of Gamma on R: provided by external file')
+                outfile.write('Dependence of Gamma on R: provided by external file \n')
+            else:
+                print('no Gamma type selected')
+                outfile.write('no Gamma type selected \n')
+
+        elif (words[0] == 'fc_precalc'):
+            fc_precalc = True if words[2].lower() == 'true' else False
+        elif (words[0] == 'partial_GamR'):
+            if (words[2] in ('pre', 'prefactor')):
+                partial_GamR = 'pre'
+                print('Gamma(R) dependence used only in overlap integrals in transition-amplitude prefactors')
+                outfile.write('Gamma(R) dependence used only in overlap integrals in transition-amplitude prefactors\n')
+            elif (words[2] in ('exp', 'exponent', 'Wl')):
+                partial_GamR = 'exp'
+                print('Gamma(R) dependence used only in W_lambda in the transition-amplitude exponents')
+                outfile.write('Gamma(R) dependence used only in W_lambda in the transition-amplitude exponents\n')
+            else:
+                partial_GamR = None
+        elif (words[0] == 'part_fc_pre'):
+            part_fc_pre = True if words[2].lower() == 'true' else False
+        elif (words[0] == 'wavepac_only'):
+            wavepac_only = True if words[2].lower() == 'true' else False
+
         elif (words[0] == 'gs_de'):
             outfile.write('Parameters of potential energy curves:' + '\n')
             gs_de = float(words[2])
-            print("found gs_de")
             outfile.write('gs_de = ' + str(gs_de) + '\n')
         elif (words[0] == 'gs_a'):
             gs_a = float(words[2])
@@ -310,8 +357,8 @@ def read_input(inputfile, outfile):
         elif (words[0] == 'fin_pot_type'):
             fin_pot_type = str(words[2])
             outfile.write('fin_pot_type = ' + str(fin_pot_type) + '\n')
-            if (fin_pot_type not in ['morse','hyperbel']):
-                print('Non existent final state potentialy type chosen, QUIT')
+            if (fin_pot_type not in ['morse','hyperbel', 'hypfree']):
+                print('Non-existent final state potential type chosen, QUIT')
                 sys.exit()
     
     f.close()
@@ -322,7 +369,8 @@ def read_input(inputfile, outfile):
             omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, FWHM_L,
             tmax_s, timestep_s, E_step_eV,
             E_min_eV, E_max_eV,
-            integ, integ_outer,
+            integ, integ_outer, Gamma_type,
+            fc_precalc, partial_GamR, part_fc_pre, wavepac_only,
             mass1, mass2, grad_delta, R_eq_AA,
             gs_de, gs_a, gs_Req, gs_const,
             res_de, res_a, res_Req, res_const,
@@ -626,13 +674,68 @@ def check_input(Er, E_fin, Gamma,
     
 
 #-------------------------------------------------------------------------
+# input of Franck-Condon overlap integrals including final states.
+
+def read_fc_input(inputfile):
+    # Python 3 compatibility hack
+    try:
+        unicode('')
+    except NameError:
+        unicode = str
+
+
+    state = 0       # Encodes where we are in the input file (0: before gs-fin, 1: gs-fin, 2: between gs-fin and res-fin, 3: res-fin)
+    prev_n = 0      # The quantum number of gs in gs-fin or res in res-fin in the previous line
+    gs_fin = [[]]
+    res_fin = [[]]
+
+    with open(inputfile, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            words = line.split()
+            if (len(words) == 0):
+                continue
+
+            if unicode(words[0]).isnumeric():
+                if (state == 0):
+                    state = 1
+                elif (state == 2):
+                    state = 3
+            else:
+                if (state == 1):
+                    state = 2
+                    prev_n = 0
+                elif (state == 3):
+                    break
+                continue
+
+            fcs = gs_fin if (state == 1) else res_fin
+            if (prev_n != int(words[0])):
+                prev_n = int(words[0])
+                fcs.append(list())
+            fcs[prev_n].append(complex(words[-1]))
+
+    n_fin_max_list = []             # Max quantum number considered in non-direct ionization for each lambda (all vibr fin states above the resp res state are discarded)
+    for l in res_fin:
+        n_fin_max_list.append(len(l) - 1)
+    n_fin_max_X = len(gs_fin[0]) - 1                            # Will be used in hyperbel/hypfree case as the very highest nmu
+
+    return (gs_fin, res_fin, n_fin_max_list, n_fin_max_X)
+
+
+
+
+
+#-------------------------------------------------------------------------
+#   output
 #   output
 def prep_output(I, Omega_au, t_au):
 #    square = np.absolute(I)**2
     #print I
     Omega_eV = sciconv.hartree_to_ev(Omega_au)
     t_s = sciconv.atu_to_second(t_au)
-    string = str(Omega_eV) + '   ' + format(t_s, '.18f') + '   ' + format(I, '.15e')
+    string = format(Omega_eV, '>8.5f') + '   ' + format(t_s, ' .18f') + '   ' + format(I, '.15e')
+    #string = str(Omega_eV) + '   ' + format(t_s, '.18f') + '   ' + format(I, '.15e')
     return string
 
 def prep_output_comp(I, I2, Omega_au, t_au):

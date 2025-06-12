@@ -1,0 +1,77 @@
+# transitions dipole moments
+rdg_au        = 0.70             # transition dipole moment into the resonance state
+cdg_au        = 0.5              # transition dipole moment into any continuum state
+q             = 1
+# parameters of the investigated system
+# the ground state (vibrational gs of electronic gs) energy is being defined as EG = 0
+Er_a_eV       =  49.7477         # resonance energy (at potential minimum) in eV
+Er_b_eV       =   0.0
+E_fin_eV      =  39.9004         # final state energy (at potential minimum) in eV
+tau_s         =  20E-15          # lifetime in s
+E_fin_eV_2    =   0.0 
+tau_a_s       =   0.0
+tau_b_s       =   0.0
+tau_s_2       =   0.0
+interact_eV   =   0.0
+#
+# laser parameters
+Omega_eV      = 50.0000          # mean photon energy of the XUV pulse in eV
+n_X           = 10               # number of cycles within the XUV pulse
+I_X           = 5.0E8            # intensity of the XUV pulse in W/cm^2
+X_shape       = gauss            # options: gauss, sinsq
+Xshape        = convoluted       # options: convoluted, infinite
+#
+# dressing laser parameters
+omega_eV      = 1E-10            # IR pulse
+n_L           = 0
+I_L           = 0.0
+delta_t_s     = 0.0
+shift_step_s  = 0.0
+phi           = 0
+FWHM_L        = 0
+#
+# parameters of the simulation
+tmax_s        = 150.0E-15        # simulate until time tmax in s
+timestep_s    = 149.9E-15        # evaluate expression every timestep_s seconds
+#
+E_min_eV      =  9.7995
+E_max_eV      = 10.5
+E_step_eV     =  0.001           # energy difference between different evaluated electron kinetic energies
+#
+integ         = analytic         # options: analytic, (quadrature, romberg - both currently unavailable)
+integ_outer   = quadrature       # options: quadrature, romberg
+Gamma_type    = R6               # options: const, R6, external
+#
+fc_precalc    = False            # use file with pre-calculated "Franck-Condon overlap integrals" for gs-fin and res-fin, flag -f
+partial_GamR  = None             # options: None, pre, exp (i. e. use Gamma-of-R dependence everywhere / only in prefactors / only in Wl)
+part_fc_pre   = False            # use file with pre-calculated FC overlap integrals without Gamma-of-R dependence, flag -F
+wavepac_only  = False            # calculate only the resonance-state projections, skip final-state projections'
+#
+# parameters for the nuclear dynamics
+mass1         = 20.1797          # in g/mol
+mass2         = 20.1797          # in g/mol
+grad_delta    = 0.001
+R_eq_AA       = 3.08
+# vibrational states parameters  # provide everything in au (de in Hartree, a in inverse Bohr, Req in Bohr)
+# ground-state parameters
+gs_de         = 0.0001102
+gs_a          = 1.5
+gs_Req        = 6.0
+gs_const      = 0.0
+# resonance-state parameters
+res_de        = 0.0183747
+res_a         = 15.3994
+res_Req       = 6.0
+res_const     = 0.0
+# final-state parameters
+fin_a         = 0.0833354        # for morse: fin_de; for hyperbel or hypfree: V_a in au (Hartree * Bohr)
+fin_b         = 1.4699729        # for morse: fin_a; for hyperbel or hypfree: V_b in au (Hartree)
+fin_c         = 0.01890          # for morse: fin_Req; for hyperbel or hypfree: step width for R_start for vibrational energies (fin_a/R_start) in au (Bohr)
+fin_d         = 1.E-05           # for morse: fin_const; for hyperbel or hypfree: FC factor threshold for calculating the trs integral
+fin_pot_type  = hyperbel         # options: morse, hyperbel, hypfree
+## final-state parameters
+#fin_a         = 0.003675
+#fin_b         = 21.7512
+#fin_c         = 6.0
+#fin_d         = 0.0
+#fin_pot_type  = morse

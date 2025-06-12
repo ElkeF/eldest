@@ -68,7 +68,7 @@ Xshape = 'convoluted'
 #   gs_de, gs_a, gs_Req, gs_const,
 #   res_de, res_a, res_Req, res_const,
 #   fin_a, fin_b, fin_c, fin_d, fin_pot_type)
-# Added dummy variable to match up number of arguments
+# Added dummy variables to match up number of arguments
 
 (rdg_au, cdg_au,
  Er_a_eV, Er_b_eV, tau_a_s, tau_b_s, E_fin_eV, tau_s, E_fin_eV_2, tau_s_2,
@@ -77,12 +77,13 @@ Xshape = 'convoluted'
  omega_eV, n_L, I_L, Lshape, delta_t_s, shift_step_s, phi, q, FWHM_L,
  tmax_s, timestep_s, E_step_eV,
  E_min_eV, E_max_eV,
- integ, integ_outer,
+ integ, integ_outer, _,
+ _, _, _, _,
  mass1, mass2, grad_delta, R_eq_AA,
  V_RICD_in_a, V_RICD_in_b, V_RICD_in_c, V_RICD_in_d,
  V_fin_RICD_a, V_fin_RICD_b,
  V_ICD_in_a, V_ICD_in_b, V_ICD_in_c, V_ICD_in_d,
- V_fin_ICD_a, V_fin_ICD_b, dummy) = in_out.read_input(infile, outfile)
+ V_fin_ICD_a, V_fin_ICD_b, _) = in_out.read_input(infile, outfile)
 
 #-------------------------------------------------------------------------
 # Convert input parameters to atomic units
@@ -118,37 +119,40 @@ elif(X_gauss):
     sigma     = np.pi * n_X / (Omega_au * np.sqrt(np.log(2)))
     FWHM      = 2 * np.sqrt( 2 * np.log(2)) * sigma
     TX_au     = 5 * sigma
-    print('sigma = ', sciconv.atu_to_second(sigma))
-    print('FWHM = ', sciconv.atu_to_second(FWHM))
-    outfile.write('sigma = ' + str(sciconv.atu_to_second(sigma)) + '\n')
-    outfile.write('FWHM = ' + str(sciconv.atu_to_second(FWHM)) + '\n')
-print('end of the first pulse = ', sciconv.atu_to_second(TX_au/2))
-outfile.write('end of the first pulse = ' + str(sciconv.atu_to_second(TX_au)) + '\n')
+    print('sigma [s] = ', sciconv.atu_to_second(sigma))
+    print('FWHM [s] = ', sciconv.atu_to_second(FWHM))
+    outfile.write('sigma [s] = ' + str(sciconv.atu_to_second(sigma)) + '\n')
+    outfile.write('FWHM [s] = ' + str(sciconv.atu_to_second(FWHM)) + '\n')
+print('end of the first pulse [s] = ', sciconv.atu_to_second(TX_au/2))
+outfile.write('end of the first pulse [s] = ' + str(sciconv.atu_to_second(TX_au/2)) + '\n')
 I_X_au        = sciconv.Wcm2_to_aiu(I_X)
-print('I_X = ', I_X)
+print('I_X [W/cm^2] = ', I_X)
 print('I_X_au = ', I_X_au)
 E0X           = np.sqrt(I_X_au)
 A0X           = E0X / Omega_au
-print('A0X = ', A0X)
+print('A0X [au] = ', A0X)
 
 omega_au      = sciconv.ev_to_hartree(omega_eV)
 FWHM_L_au     = sciconv.second_to_atu(FWHM_L)
 sigma_L_au    = FWHM_L_au / np.sqrt(8 * np.log(2))      # assume Gaussian envelope for second pulse
 a             = 5./2 * sigma_L_au       # half duration of IR pulse (delta_t - a, delta_t + a); in PRA 2020: small-delta t
-print("FWHM_L = ", FWHM_L)
-print("sigma_L = ", sciconv.atu_to_second(sigma_L_au))
-TL_au         = n_L * 2 * np.pi / omega_au
-print('start of IR pulse = ', delta_t_s - sciconv.atu_to_second(TL_au/2))
-print('end of IR pulse = ', delta_t_s + sciconv.atu_to_second(TL_au/2))
-outfile.write('start of IR pulse = ' + str(delta_t_s - sciconv.atu_to_second(TL_au/2)) + '\n')
-outfile.write('end of IR pulse = ' + str(delta_t_s + sciconv.atu_to_second(TL_au/2)) + '\n')
+print("FWHM_L [s] = ", FWHM_L)
+print("sigma_L [s] = ", sciconv.atu_to_second(sigma_L_au))
+TL_au         = n_L * 2 * np.pi / omega_au      # How can n_L and omega (and thereby TL) be chosen independently from FWHM_L? Is not FWHM_L = 2 sqrt(2) pi N_L / omega? And why is not TL = 5 sigma_L = (n_L * 2 pi / omega) * 5/ln(4) ? Luckily, TL is eventually never used, but printed nevertheless!
+print('start of IR pulse [s] = ', delta_t_s - sciconv.atu_to_second(a))
+print('end of IR pulse [s] = ', delta_t_s + sciconv.atu_to_second(a))
+outfile.write('start of IR pulse [s] = ' + str(delta_t_s - sciconv.atu_to_second(a)) + '\n')
+outfile.write('end of IR pulse [s] = ' + str(delta_t_s + sciconv.atu_to_second(a)) + '\n')
+#print('start of IR pulse [s] = ', delta_t_s - sciconv.atu_to_second(TL_au/2))
+#print('end of IR pulse [s] = ', delta_t_s + sciconv.atu_to_second(TL_au/2))
+#outfile.write('start of IR pulse [s] = ' + str(delta_t_s - sciconv.atu_to_second(TL_au/2)) + '\n')
+#outfile.write('end of IR pulse [s] = ' + str(delta_t_s + sciconv.atu_to_second(TL_au/2)) + '\n')
 I_L_au        = sciconv.Wcm2_to_aiu(I_L)
-print('I_L = ', I_L)
+print('I_L [W/cm^2] = ', I_L)
 print('I_L_au = ', I_L_au)
 E0L           = np.sqrt(I_L_au)
-#print('E0L = ', E0L)
 A0L           = E0L / omega_au
-print('A0L = ', A0L)
+print('A0L [au] = ', A0L)
 delta_t_au    = sciconv.second_to_atu(delta_t_s)        # t diff between the maxima of the two pulses
 
 # parameters of the simulation
@@ -217,12 +221,12 @@ elif (Xshape == 'infinite'):
 
 # IR pulse
 A_IR = lambda t3: A0L * np.sin(np.pi * (t3 - delta_t_au + TL_au/2) / TL_au)**2 \
-                      * np.cos(omega_au * t3 + phi)
-integ_IR = lambda t3: (p_au + A_IR(t3))**2      # Hamiltonian for one electron in EM field
+                      * np.cos(omega_au * t3 + phi) # Evtly never used (only in integ_IR) ?
+integ_IR = lambda t3: (p_au + A_IR(t3))**2      # Hamiltonian for one electron in EM field      # Evtly never used (only in dress_I and dress_I_after) ?
 
 IR_during = lambda t2:  np.exp(-1j * (E_kin_au + E_fin_au) * (t_au - t2))
 
-IR_after = lambda t2:  np.exp(-1j * E_kin_au * (t_au - t2))
+IR_after = lambda t2:  np.exp(-1j * E_kin_au * (t_au - t2)) # Never used?
 
 # population of the ICD initial state - this is never used ?
 Mr = lambda t1: N0 * (1
@@ -238,17 +242,17 @@ fun_t_dir_1 = lambda t1: FX_t1(t1)   * np.exp(1j * E_fin_au * (t1-t_au)) \
 fun_TX2_dir_1 = lambda t1: FX_t1(t1) * np.exp(1j * E_fin_au * (t1-t_au)) \
                                      * np.exp(1j * E_kin_au * (t1-t_au))        # Same as fun_t_dir_1 - why keep ?
 
-dress_I = lambda t1: integrate.quad(integ_IR,t1,t_au)[0]
-dress = lambda t1: np.exp(-1j/2 * dress_I(t1))
+dress_I = lambda t1: integrate.quad(integ_IR,t1,t_au)[0]    # Evtly never used (only in dress) ?
+dress = lambda t1: np.exp(-1j/2 * dress_I(t1))  # Evtly never used (only in fun_IR_dir) ?
 
-dress_I_after = lambda t1: integrate.quad(integ_IR,t1,(delta_t_au + TL_au/2))[0]
-dress_after = lambda t1: np.exp(-1j/2 * dress_I_after(t1))
+dress_I_after = lambda t1: integrate.quad(integ_IR,t1,(delta_t_au + TL_au/2))[0]    # Evtly never used (only in dress_after) ?
+dress_after = lambda t1: np.exp(-1j/2 * dress_I_after(t1))  # Evtly never used (only in fun_dress_after) ?
 fun_dress_after = lambda t1: FX_t1(t1) * np.exp(1j * E_fin_au * t1) \
                               * np.exp(1j * E_kin_au * ((delta_t_au + TL_au/2)-t_au)) \
-                              * dress_after(t1)
+                              * dress_after(t1)     # Never used ?
 
 fun_IR_dir = lambda t1: FX_t1(t1) * np.exp(1j * E_fin_au * t1) \
-                                  * dress(t1)
+                                  * dress(t1)   # Never used ?
 
 
 
