@@ -1,4 +1,8 @@
 #!/usr/bin/python
+########################################################
+# Determine Morse potential parameters in atomic units #
+# written by Elke Fasshauer 2020                       #
+########################################################
 
 import numpy as np
 import sciconv as sc
