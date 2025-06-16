@@ -79,6 +79,15 @@ def atu_to_second(t_au):
     t_s = t_au * constants.hbar / E_h
     return t_s
 
+#-------------------------------------------------------------------------
+#      Lifetimes
+def lifetime_to_gamma(t_s):
+    t_au = second_to_atu(t_s)
+    gamma_au = 1./t_au
+    gamma_ev = hartree_to_ev(gamma_au)
+    return gamma_ev
+
+
 
 #-------------------------------------------------------------------------
 #      Intensities
