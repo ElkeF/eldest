@@ -87,6 +87,11 @@ def lifetime_to_gamma(t_s):
     gamma_ev = hartree_to_ev(gamma_au)
     return gamma_ev
 
+def gamma_to_lifetime(gamma_ev):
+    gamma_au = ev_to_hartree(gamma_ev)
+    t_au = 1./gamma_au
+    t_s = atu_to_second(t_au)
+    return t_s
 
 
 #-------------------------------------------------------------------------
