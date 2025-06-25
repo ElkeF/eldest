@@ -67,8 +67,10 @@ parser.add_argument('-g', '--gamma', help='''Optional binary file containing the
 #                    only into the overlap integrals in the prefactors for the transition amplitude
 #                    but not in W_lambda in the exponents. If 'exponent' or 'exp' or 'Wl' is chosen, the reverse is true.
 #                    If none is given, the Gamma(R) dependence is incorporated in all relevant places (default).''')
-parser.add_argument('-F', '--FC', help='''Same as '-f' and '--fc', but for an additional set with overlap integrals
-                    without Gamma(R) dependence in the res-fin integrals. The file structure is the same as before.
+parser.add_argument('-F', '--FC', help='''Same as '-f' and '--fc', but for an additional file with overlap integrals
+                    without Gamma(R) dependence in the res-fin integrals. The file structure is the same as before;
+                    this also means that only one res-fin block will be recognized - if the file contains both
+                    res-fin integrals with and without Gamma(R) dependence, the block with Gamma(R) must be deleted.
                     +++ This option is only available if partial_GamR is not None.''')
 #                    +++ This option is only available in combination with the -p/--partial option.''')
 #parser.add_argument('-w', '--wavepacket_only', action='store_true', help='''If this flag is given, only the projection
