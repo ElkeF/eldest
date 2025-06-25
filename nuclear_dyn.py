@@ -90,8 +90,8 @@ args = parser.parse_args()
 
 print(str(dt_start))
 outfile.write(str(dt_start) + '\n')
-outfile.write('Tempora mutantur, nos et mutamur in illis.')
-outfile.write("The results were obtained with nuclear_dyn.py \n")
+outfile.write('Tempora mutantur, nos et mutamur in illis.\n')
+outfile.write("The results were obtained with nuclear_dyn.py\n")
 
 infile = args.infile
 print(infile)
@@ -133,23 +133,23 @@ Xshape = 'convoluted'
 
 
 #-------------------------------------------------------------------------
-# open further outputfiles
+# open further output files
 pure_out = open('full.dat' if not wavepac_only else devnull, mode='w')
 movie_out = open('movie.dat' if not wavepac_only else devnull, mode='w')
 #popfile = open("pop.dat", mode='w')
 wp_res_out = open('wp_res.dat', mode='w')
 
 if fc_precalc:
-    print('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc))
-    outfile.write('The gs-fin and res-fin Franck-Condon overlap integrals are read from file ' + str(args.fc) + '\n')
+    print('The Franck-Condon overlap integrals are read from file: ' + str(args.fc))
+    outfile.write('The Franck-Condon overlap integrals are read from file: ' + str(args.fc) + '\n')
 else:
-    print('All Franck-Condon overlap integrals are calculated from scratch')
-    outfile.write('All Franck-Condon overlap integrals are calculated from scratch\n')
+    print('The Franck-Condon overlap integrals are calculated from scratch')
+    outfile.write('The Franck-Condon overlap integrals are calculated from scratch\n')
 
 if partial_GamR:
     if part_fc_pre:
-        print('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC))
-        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are read from file ' + str(args.FC) + '\n')
+        print('Additional res-fin overlap integrals without Gamma(R) dependence are read from file: ' + str(args.FC))
+        outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are read from file: ' + str(args.FC) + '\n')
     else:
         print('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch')
         outfile.write('Additional res-fin overlap integrals without Gamma(R) dependence are calculated from scratch\n')
@@ -159,8 +159,8 @@ if wavepac_only:
     outfile.write('Only the resonance-state projections will be calculated, not the spectrum (final-state projections)' + '\n')
 
 if args.gamma:
-    print('Gamma(R) dependence is read from file ' + str(args.gamma))
-    outfile.write('Gamma(R) dependence is read from file ' + str(args.gamma) + '\n')
+    print('Gamma(R) dependence is read from file: ' + str(args.gamma))
+    outfile.write('Gamma(R) dependence is read from file: ' + str(args.gamma) + '\n')
 
 
 #-------------------------------------------------------------------------
@@ -404,12 +404,6 @@ elif args.fc and args.gamma:
     movie_out.close
     wp_res_out.close
     sys.exit('!!! FC input file and Gamma-R-dependence file were provided at the same time. Programme terminated.')
-elif (fin_pot_type == 'morse') and (args.fc or args.FC):
-    outfile.close
-    pure_out.close
-    movie_out.close
-    wp_res_out.close
-    sys.exit('!!! FC input is not supported for Morse-potential final states. Programme terminated.')
 elif not part_fc_pre and args.FC:
     outfile.close
     pure_out.close
@@ -506,26 +500,38 @@ for i in range (0,n_gs_max+1):
     
 # ground state - final state <mu|kappa>   and   resonance state - final state <mu|lambda>
 if (fin_pot_type == 'morse'):
-    for m in range(0,n_fin_max+1):
-        for k in range(0,n_gs_max+1):
-            FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
-                                 k,gs_a,gs_Req,gs_de,R_min,R_max)
-            gs_fin[k].append(FC)
-        for l in range(0,n_res_max+1):
-            FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
-                                 l,res_a,res_Req,res_de,R_min,R_max,
-                                 V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
-            res_fin[l].append(FC)
-            if partial_GamR:
+    if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
+        _, gs_fin, res_fin, _, _ = in_out.read_fc_input(args.fc)
+        if partial_GamR:
+            _, gs_fin_woVR, res_fin_woVR, _, _ = in_out.read_fc_input(args.FC)
+            if not (gs_fin_woVR == gs_fin and len(res_fin) == len(res_fin_woVR)):
+                outfile.write("gs_fin: " + str(gs_fin_woVR == gs_fin) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
+                outfile.close
+                pure_out.close
+                movie_out.close
+                wp_res_out.close
+                sys.exit('!!! Files of FC integrals with and without Gamma(R) dependence are incompatible. Programme terminated.')
+    else:
+        for m in range(0,n_fin_max+1):
+            for k in range(0,n_gs_max+1):
+                FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                                     k,gs_a,gs_Req,gs_de,R_min,R_max)
+                gs_fin[k].append(FC)
+            for l in range(0,n_res_max+1):
                 FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
                                      l,res_a,res_Req,res_de,R_min,R_max,
-                                     V_of_R=lambda R: 1)
-                res_fin_woVR[l].append(FC)
+                                     V_of_R=V_of_R)      # Gamma(R) dependence only influences res-fin FC integrals (interaction mediated by V)
+                res_fin[l].append(FC)
+                if partial_GamR:
+                    FC = wf.mp_FCmor_mor(m,fin_a,fin_Req,fin_de,red_mass,
+                                         l,res_a,res_Req,res_de,R_min,R_max,
+                                         V_of_R=lambda R: 1)
+                    res_fin_woVR[l].append(FC)
 
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
     if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
-        gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
+        _, gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         for m in range(0,n_fin_max_X+1):
             E_mu = fin_hyp_a / R_start
@@ -533,7 +539,7 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             R_start = R_start + R_hyp_step
         norm_factor = 1.
         if partial_GamR:
-            gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
+            _, gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
             if not (gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
                     and n_fin_max_X_woVR == n_fin_max_X and len(res_fin) == len(res_fin_woVR)):
                 outfile.write("gs_fin: " + str(gs_fin_woVR == gs_fin) + ", max_list: " + str(n_fin_max_list_woVR == n_fin_max_list) + ", max_X: " + str(n_fin_max_X_woVR == n_fin_max_X) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
