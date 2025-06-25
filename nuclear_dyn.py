@@ -10,8 +10,8 @@
 #                                                                        #
 ##########################################################################
 # written by: Elke Fasshauer November 2020                               #
-# extended by: Alexander Riegel July 2023 - December 2024                #
-# last change: 2025-06-10 AVR                                            #
+# extended by: Alexander Riegel from July 2023 onwards                   #
+# last change: 2025-06-25 AVR                                            #
 ##########################################################################
 
 import argparse
@@ -48,21 +48,11 @@ parser = argparse.ArgumentParser(
         epilog='Originally written by Elke Fasshauer, extended by Alexander V. Riegel.')
 parser.add_argument('infile', help='Input file for simulation, probably photonucl.in')
 parser.add_argument('-f', '--fc', help='''Optional file with pre-calculated "Franck-Condon overlap integrals"
-                    (which may or may not include weighting functions inside the integrand)
-                    that include the repulsive-potential final state(s).
-                    This option does not work for a Morse-potential final state.
-                    The file is thought to be a reduced copy of eldest.out from a previous calculation:
-                    It may start with an arbitrary number of lines (including zero) preceding the gs-fin FC integrals
-                    provided that their first word is not numeric.
-                    Then the gs-fin integrals shall follow, with the first word indicating the gs quantum number
-                    and the last word being the integral value.
-                    At least one line beginning with a non-numeric word
-                    then separates the gs-fin integrals from the res-fin integrals.
-                    These shall have the structure as described for the gs-fin integrals.
-                    There shall be no dividing line between different res quantum numbers.
-                    The first line not beginning with a numeric word then indicates the endpoint for the read-in routine;
-                    all lines thereafter will be ignored, regardless of their first word.
-                    The gs-res integrals shall not be present and will in every case be directly calulated.
+                    (which may or may not include weighting functions inside the integrand).
+                    The file is thought to be a copy of eldest.out from a previous calculation.
+                    It may be truncated, but at least the Franck-Condon-integrals block must be present
+                    (starting with the line "Franck-Condon overlaps between ground and resonance state"
+                    and ending with the last final-resonance integral) and structured as in the eldest.out file.
                     +++ This option is incompatible with the -g/--gamma option.''')
 parser.add_argument('-g', '--gamma', help='''Optional binary file containing the functional dependence
                     of the decay width Gamma on the internuclear distance R.
@@ -480,32 +470,24 @@ outfile.write('Lower bound of integration over R for the Franck-Condon factors' 
 outfile.write('R_min = {:14.10E} au = {:5.5f} A\n'.format(R_min, sciconv.bohr_to_angstrom(R_min)))
 outfile.write('Hope that is in order.' + '\n')
 
-# ground state - resonance state <lambda|kappa>
-print()
-print('-----------------------------------------------------------------')
-print("Franck-Condon overlaps between ground and resonance state")
-print('n_gs  ' + 'n_res  ' + '<res|gs>')
-outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
-outfile.write("Franck-Condon overlaps between ground and resonance state" + '\n')
-outfile.write('n_gs  ' + 'n_res  ' + '<res|gs>' + '\n')
-for i in range (0,n_gs_max+1):
-    tmp = []
-    for j in range (0,n_res_max+1):
-        FC = wf.mp_FCmor_mor(j,res_a,res_Req,res_de,red_mass,
-                             i,gs_a,gs_Req,gs_de,R_min,R_max)
-        tmp.append(FC)
-        outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(i,j,FC))
-        print(('{:4d}  {:5d}  {:14.10E}'.format(i,j,FC)))
-    gs_res.append(tmp)
+# calc ground state - resonance state <lambda|kappa>
+if not args.fc:                 # If, however, an FC input file is provided, FC integrals will be read from it in the next step and their calculation skipped
+    for k in range (0,n_gs_max+1):
+        tmp = []
+        for l in range (0,n_res_max+1):
+            FC = wf.mp_FCmor_mor(l,res_a,res_Req,res_de,red_mass,
+                                 k,gs_a,gs_Req,gs_de,R_min,R_max)
+            tmp.append(FC)
+        gs_res.append(tmp)
     
-# ground state - final state <mu|kappa>   and   resonance state - final state <mu|lambda>
+# read in FCs;      or calc ground state - final state <mu|kappa>   and   resonance state - final state <mu|lambda>
 if (fin_pot_type == 'morse'):
-    if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
-        _, gs_fin, res_fin, _, _ = in_out.read_fc_input(args.fc)
+    if args.fc:            # If an FC input file is provided, read in the FC integrals from it and skip their calculation
+        gs_res, gs_fin, res_fin, _, _ = in_out.read_fc_input(args.fc)
         if partial_GamR:
-            _, gs_fin_woVR, res_fin_woVR, _, _ = in_out.read_fc_input(args.FC)
-            if not (gs_fin_woVR == gs_fin and len(res_fin) == len(res_fin_woVR)):
-                outfile.write("gs_fin: " + str(gs_fin_woVR == gs_fin) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
+            gs_res_woVR, gs_fin_woVR, res_fin_woVR, _, _ = in_out.read_fc_input(args.FC)
+            if not (gs_res_woVR == gs_res and gs_fin_woVR == gs_fin and len(res_fin) == len(res_fin_woVR)):
+                outfile.write("gs_res: " + str(gs_res_woVR == gs_res) + ", gs_fin: " + str(gs_fin_woVR == gs_fin) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
                 outfile.close
                 pure_out.close
                 movie_out.close
@@ -530,8 +512,8 @@ if (fin_pot_type == 'morse'):
 
 
 elif (fin_pot_type in ('hyperbel','hypfree')):
-    if args.fc:            # If an FC input file is provided, read in the gs-fin and res-fin FC integrals from it and skip their calculation
-        _, gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
+    if args.fc:            # If an FC input file is provided, read in the FC integrals from it and skip their calculation
+        gs_res, gs_fin, res_fin, n_fin_max_list, n_fin_max_X = in_out.read_fc_input(args.fc)
         R_start = R_start_EX_max        # Initialize R_start at the lowest considered value (then increase R_start by a constant R_hyp_step)
         for m in range(0,n_fin_max_X+1):
             E_mu = fin_hyp_a / R_start
@@ -539,10 +521,11 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
             R_start = R_start + R_hyp_step
         norm_factor = 1.
         if partial_GamR:
-            _, gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
-            if not (gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
+            gs_res_woVR, gs_fin_woVR, res_fin_woVR, n_fin_max_list_woVR, n_fin_max_X_woVR = in_out.read_fc_input(args.FC)
+            if not (gs_res_woVR == gs_res and gs_fin_woVR == gs_fin and n_fin_max_list_woVR == n_fin_max_list
                     and n_fin_max_X_woVR == n_fin_max_X and len(res_fin) == len(res_fin_woVR)):
-                outfile.write("gs_fin: " + str(gs_fin_woVR == gs_fin) + ", max_list: " + str(n_fin_max_list_woVR == n_fin_max_list) + ", max_X: " + str(n_fin_max_X_woVR == n_fin_max_X) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
+                outfile.write("gs_res: " + str(gs_res_woVR == gs_res) + ", gs_fin: " + str(gs_fin_woVR == gs_fin) + ", max_list: " + str(n_fin_max_list_woVR == n_fin_max_list)
+                              + ", max_X: " + str(n_fin_max_X_woVR == n_fin_max_X) + ", len(res_fin): " + str(len(res_fin) == len(res_fin_woVR)) + "\n")
                 outfile.close
                 pure_out.close
                 movie_out.close
@@ -618,7 +601,23 @@ elif (fin_pot_type in ('hyperbel','hypfree')):
                     break
         n_fin_max_X = len(E_mus) - 1                            # Will be used in hyperbel/hypfree case as the very highest nmu
 
+# print FC integrals
+#   gs-res
+print()
+print('-----------------------------------------------------------------')
+print("Franck-Condon overlaps between ground and resonance state")
+print('n_gs  ' + 'n_res  ' + '<res|gs>')
+outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
+outfile.write("Franck-Condon overlaps between ground and resonance state" + '\n')
+outfile.write('n_gs  ' + 'n_res  ' + '<res|gs>' + '\n')
 
+for k in range (0,n_gs_max+1):
+    for l in range (0,n_res_max+1):
+        FC = gs_res[k][l]
+        outfile.write('{:4d}  {:5d}  {:14.10E}\n'.format(k,l,FC))
+        print(('{:4d}  {:5d}  {:14.10E}'.format(k,l,FC)))
+
+#   gs-fin
 print()
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between ground and final state")
@@ -646,12 +645,13 @@ for k in range(0,n_gs_max+1):
                 print(('{:4d}  {:5d}  {: 14.10E}'.format(k,m,FC)))
                 print('  ...')
 
+#   res-fin
 print()
 print('-----------------------------------------------------------------')
 print("Franck-Condon overlaps between final and resonance state")
+print('n_res  ' +'n_fin  ' + '<fin|res>')
 outfile.write('\n' + '-----------------------------------------------------------------' + '\n')
 outfile.write("Franck-Condon overlaps between final and resonance state" + '\n')
-print('n_res  ' +'n_fin  ' + '<fin|res>')
 outfile.write('n_res  ' +'n_fin  ' + '<fin|res>' + '\n')
 
 for l in range(0,n_res_max+1):
