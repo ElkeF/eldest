@@ -700,10 +700,10 @@ if partial_GamR:
                     print(('{:5d}  {:5d}  {: 14.10E}'.format(l,m,FC)))
                     print('   ...')
     print('These additional overlaps without the V(R) dependence are used\n only in',
-            'the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
+            'the prefactors to the time integrals' if (partial_GamR == 'exp') else 'the calculation of the W_lambda values')
     outfile.write('These additional overlaps without the V(R) dependence are used\n only in '
-            + ('the prefactors to the time integrals' if (partial_GamR == 'pre') else 'the calculation of the W_lambda values')
-            + '\n')
+            + ('the prefactors to the time integrals' if (partial_GamR == 'exp') else 'the calculation of the W_lambda values')
+            + '\n')     # If 'exp', then W_lambda is calced with Gamma(R) but they prefactors are not
 
 # sum over mup of product <lambda|mup><mup|kappa>       where mup means mu prime
 indir_FCsums = []
