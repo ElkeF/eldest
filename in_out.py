@@ -684,43 +684,65 @@ def read_fc_input(inputfile):
         unicode = str
 
 
-    state = 0       # Encodes where we are in the input file (0: before gs-fin, 1: gs-fin, 2: between gs-fin and res-fin, 3: res-fin)
-    prev_n = 0      # The quantum number of gs in gs-fin or res in res-fin in the previous line
+    state = 'pre_gs-res'       # Encodes where we are in the input file
+    prev_n = 0      # The quantum number of gs in gs-res / gs-fin or of res in res-fin in the previous line
+    gs_res = [[]]
     gs_fin = [[]]
     res_fin = [[]]
 
     with open(inputfile, 'r') as f:
         lines = f.readlines()
-        for line in lines:
-            words = line.split()
-            if (len(words) == 0):
-                continue
 
-            if unicode(words[0]).isnumeric():
-                if (state == 0):
-                    state = 1
-                elif (state == 2):
-                    state = 3
+    lines_iter = iter(lines)
+    for line in lines_iter:
+        if state == 'pre_gs-res':
+            if line.startswith("Franck-Condon overlaps between ground and resonance state"):
+                state = 'gs-res'
+                next(lines_iter)
+                continue
             else:
-                if (state == 1):
-                    state = 2
-                    prev_n = 0
-                elif (state == 3):
-                    break
                 continue
 
-            fcs = gs_fin if (state == 1) else res_fin
-            if (prev_n != int(words[0])):
-                prev_n = int(words[0])
-                fcs.append(list())
-            fcs[prev_n].append(complex(words[-1]))
+        words = line.split()
+        if len(words) == 0:
+            continue
+
+        if unicode(words[0]).isnumeric():
+            if state == 'pre_gs-fin':
+                state = 'gs-fin'
+            elif state == 'pre_res-fin':
+                state = 'res-fin'
+        else:
+            if state == 'gs-res':
+                state = 'pre_gs-fin'
+                prev_n = 0
+            elif state == 'gs-fin':
+                state = 'pre_res-fin'
+                prev_n = 0
+            elif state == 'res-fin':
+                break
+            continue
+
+        if state == 'gs-res':
+            fcs = gs_res
+        elif state == 'gs-fin':
+            fcs = gs_fin
+        elif state == 'res-fin':
+            fcs = res_fin
+        else:
+            sys.exit('The FC integral read-in situation has developed not necessarily to our advantage.')
+
+        if prev_n != int(words[0]):
+            prev_n = int(words[0])
+            fcs.append(list())
+        fcs[prev_n].append(complex(words[-1]))
 
     n_fin_max_list = []             # Max quantum number considered in non-direct ionization for each lambda (all vibr fin states above the resp res state are discarded)
     for l in res_fin:
         n_fin_max_list.append(len(l) - 1)
     n_fin_max_X = len(gs_fin[0]) - 1                            # Will be used in hyperbel/hypfree case as the very highest nmu
 
-    return (gs_fin, res_fin, n_fin_max_list, n_fin_max_X)
+    return (gs_res, gs_fin, res_fin, n_fin_max_list, n_fin_max_X)
 
 
 
